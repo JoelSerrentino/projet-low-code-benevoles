@@ -2,6 +2,7 @@
 # Script: Import données CSV vers SharePoint - Projet Gestion Bénévoles
 # Auteur: Joël Serrentino  
 # Date: 18 novembre 2025
+# Version: 2.0 (inclut bénéficiaires et prestations)
 # Description: Importe les fichiers CSV dans les listes SharePoint
 # ============================================================================================================
 
@@ -15,7 +16,7 @@
 .DESCRIPTION
     Ce script:
     - Se connecte au site SharePoint
-    - Importe Bénévoles, Missions, Affectations depuis les CSV
+    - Importe Bénévoles, Missions, Affectations, Bénéficiaires, Prestations depuis les CSV
     - Gère les lookups (références entre listes)
     - Gère les imports par batch pour performance
     - Log toutes les opérations
@@ -427,6 +428,139 @@ Write-Progress -Activity "Import Affectations" -Completed
 Write-Log "✓ Affectations importées: $importedAffectations/$totalAffectations (échecs: $failedAffectations)" -Level "SUCCESS"
 
 # ============================================================================================================
+# IMPORT 4: BÉNÉFICIAIRES
+# ============================================================================================================
+
+Write-Host ""
+Write-Host "=== Import des BÉNÉFICIAIRES ===" -ForegroundColor Yellow
+Write-Log "--- Import Bénéficiaires ---"
+
+$csvBeneficiaires = Import-Csv "$CsvFolder\Beneficiaires.csv" -Encoding UTF8
+$totalBeneficiaires = $csvBeneficiaires.Count
+$importedBeneficiaires = 0
+$failedBeneficiaires = 0
+
+Write-Host "  Nombre de bénéficiaires à importer: $totalBeneficiaires" -ForegroundColor Cyan
+
+$batchBeneficiaires = @()
+$batchCounterBenef = 0
+
+foreach ($row in $csvBeneficiaires) {
+    $batchCounterBenef++
+    
+    try {
+        $itemData = @{
+            Title = "$($row.CIVILITE) $($row.NOM) $($row.PRENOM)".Trim()
+            NumeroBeneficiaire = $row.NumeroBeneficiaire
+            PrenomBnf = $row.PRENOM
+            NomBnf = $row.NOM
+            CiviliteBnf = $row.CIVILITE
+            Adresse1Bnf = $row.ADRESSE1
+            NPABnf = $row.NPA
+            VilleBnf = $row.VILLE
+            Besoins = $row.Besoins
+            DateDebutBnf = [DateTime]::Parse($row.DateDebut)
+            StatutBnf = $row.Statut
+            RGPDConsentementBnf = if ($row.RGPDConsentement -eq "Oui") { $true } else { $false }
+        }
+        
+        # Champs optionnels
+        if (-not [string]::IsNullOrWhiteSpace($row.ADRESSE2)) { $itemData.Adresse2Bnf = $row.ADRESSE2 }
+        if (-not [string]::IsNullOrWhiteSpace($row.TELEPHONE)) { $itemData.TelephoneBnf = $row.TELEPHONE }
+        if (-not [string]::IsNullOrWhiteSpace($row.EMAIL)) { $itemData.EmailBnf = $row.EMAIL }
+        if (-not [string]::IsNullOrWhiteSpace($row.Referent)) { $itemData.Referent = $row.Referent }
+        if (-not [string]::IsNullOrWhiteSpace($row.Horaires)) { $itemData.Horaires = $row.Horaires }
+        if (-not [string]::IsNullOrWhiteSpace($row.Historique)) { $itemData.HistoriqueBnf = $row.Historique }
+        if (-not [string]::IsNullOrWhiteSpace($row.RGPDDateConsentement)) {
+            $itemData.RGPDDateConsentementBnf = [DateTime]::Parse($row.RGPDDateConsentement)
+        }
+        
+        Add-PnPListItem -List "Beneficiaires" -Values $itemData | Out-Null
+        $importedBeneficiaires++
+        
+        Write-Progress -Activity "Import Bénéficiaires" -Status "$importedBeneficiaires/$totalBeneficiaires" -PercentComplete (($importedBeneficiaires / $totalBeneficiaires) * 100)
+    }
+    catch {
+        Write-Log "  ✗ Erreur import bénéficiaire $($row.NOM): $_" -Level "ERROR"
+        $failedBeneficiaires++
+    }
+}
+
+Write-Progress -Activity "Import Bénéficiaires" -Completed
+Write-Log "✓ Bénéficiaires importés: $importedBeneficiaires/$totalBeneficiaires (échecs: $failedBeneficiaires)" -Level "SUCCESS"
+
+# ============================================================================================================
+# IMPORT 5: PRESTATIONS
+# ============================================================================================================
+
+Write-Host ""
+Write-Host "=== Import des PRESTATIONS ===" -ForegroundColor Yellow
+Write-Log "--- Import Prestations ---"
+
+# Créer mapping PERSONNE_ID → SharePoint ID pour bénéficiaires
+Write-Host "  → Chargement mapping bénéficiaires..." -ForegroundColor Cyan
+$beneficiairesMapping = @{}
+$allBeneficiaires = Get-PnPListItem -List "Beneficiaires" -Fields "ID","NumeroBeneficiaire" -PageSize 500
+
+foreach ($item in $allBeneficiaires) {
+    $numBenef = $item.FieldValues.NumeroBeneficiaire
+    if ($numBenef -match "BNF-(\d+)") {
+        $personneId = [int]$matches[1]
+        $beneficiairesMapping[$personneId] = $item.Id
+    }
+}
+Write-Host "    ✓ $($beneficiairesMapping.Count) bénéficiaires chargés" -ForegroundColor Green
+
+$csvPrestations = Import-Csv "$CsvFolder\Prestations.csv" -Encoding UTF8
+$totalPrestations = $csvPrestations.Count
+$importedPrestations = 0
+$failedPrestations = 0
+
+Write-Host "  Nombre de prestations à importer: $totalPrestations" -ForegroundColor Cyan
+
+foreach ($row in $csvPrestations) {
+    try {
+        # Résoudre lookup Bénéficiaire
+        $beneficiaireId = $beneficiairesMapping[[int]$row.BENEFICIAIRE_ID]
+        if (-not $beneficiaireId) {
+            Write-Log "  ⚠ Bénéficiaire non trouvé pour ID=$($row.BENEFICIAIRE_ID)" -Level "WARNING"
+            $failedPrestations++
+            continue
+        }
+        
+        # Résoudre lookup Mission (via missionsMapping déjà créé)
+        $missionId = $missionsMapping[[int]$row.ACTIVITE_ID]
+        if (-not $missionId) {
+            Write-Log "  ⚠ Mission non trouvée pour ACTIVITE_ID=$($row.ACTIVITE_ID)" -Level "WARNING"
+            $failedPrestations++
+            continue
+        }
+        
+        $itemData = @{
+            Title = "Prestation-$beneficiaireId-$missionId"
+            BeneficiaireID = $beneficiaireId
+            MissionIDPrestation = $missionId
+            DateDebutPrestation = [DateTime]::Parse($row.DateDebut)
+            FrequencePrestation = $row.Frequence
+            StatutPrestation = $row.StatutPrestation
+            DerniereVisite = [DateTime]::Parse($row.DerniereVisite)
+        }
+        
+        Add-PnPListItem -List "Prestations" -Values $itemData | Out-Null
+        $importedPrestations++
+        
+        Write-Progress -Activity "Import Prestations" -Status "$importedPrestations/$totalPrestations" -PercentComplete (($importedPrestations / $totalPrestations) * 100)
+    }
+    catch {
+        Write-Log "  ✗ Erreur import prestation: $_" -Level "ERROR"
+        $failedPrestations++
+    }
+}
+
+Write-Progress -Activity "Import Prestations" -Completed
+Write-Log "✓ Prestations importées: $importedPrestations/$totalPrestations (échecs: $failedPrestations)" -Level "SUCCESS"
+
+# ============================================================================================================
 # RAPPORT FINAL
 # ============================================================================================================
 
@@ -436,16 +570,18 @@ Write-Host "IMPORT TERMINÉ !" -ForegroundColor Green
 Write-Host "========================================" -ForegroundColor Green
 Write-Host ""
 Write-Host "RÉSUMÉ:" -ForegroundColor White
-Write-Host "  Bénévoles:    $importedBenevoles/$totalBenevoles importés (échecs: $failedBenevoles)" -ForegroundColor $(if ($failedBenevoles -eq 0) { "Green" } else { "Yellow" })
-Write-Host "  Missions:     $importedMissions/$totalMissions importées (échecs: $failedMissions)" -ForegroundColor $(if ($failedMissions -eq 0) { "Green" } else { "Yellow" })
-Write-Host "  Affectations: $importedAffectations/$totalAffectations importées (échecs: $failedAffectations)" -ForegroundColor $(if ($failedAffectations -eq 0) { "Green" } else { "Yellow" })
+Write-Host "  Bénévoles:      $importedBenevoles/$totalBenevoles importés (échecs: $failedBenevoles)" -ForegroundColor $(if ($failedBenevoles -eq 0) { "Green" } else { "Yellow" })
+Write-Host "  Missions:       $importedMissions/$totalMissions importées (échecs: $failedMissions)" -ForegroundColor $(if ($failedMissions -eq 0) { "Green" } else { "Yellow" })
+Write-Host "  Affectations:   $importedAffectations/$totalAffectations importées (échecs: $failedAffectations)" -ForegroundColor $(if ($failedAffectations -eq 0) { "Green" } else { "Yellow" })
+Write-Host "  Bénéficiaires:  $importedBeneficiaires/$totalBeneficiaires importés (échecs: $failedBeneficiaires)" -ForegroundColor $(if ($failedBeneficiaires -eq 0) { "Green" } else { "Yellow" })
+Write-Host "  Prestations:    $importedPrestations/$totalPrestations importées (échecs: $failedPrestations)" -ForegroundColor $(if ($failedPrestations -eq 0) { "Green" } else { "Yellow" })
 Write-Host ""
 Write-Host "Fichier de log: $logPath" -ForegroundColor Cyan
 Write-Host ""
 
 Write-Log "========== FIN DE L'IMPORT =========="
 
-if (($failedBenevoles + $failedMissions + $failedAffectations) -gt 0) {
+if (($failedBenevoles + $failedMissions + $failedAffectations + $failedBeneficiaires + $failedPrestations) -gt 0) {
     Write-Host "⚠ ATTENTION: Certains enregistrements n'ont pas été importés." -ForegroundColor Yellow
     Write-Host "  Consultez le fichier de log pour plus de détails." -ForegroundColor Yellow
     Write-Host ""

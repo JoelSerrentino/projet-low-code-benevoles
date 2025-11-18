@@ -2,6 +2,7 @@
 # Script: Création automatique des listes SharePoint - Projet Gestion Bénévoles
 # Auteur: Joël Serrentino
 # Date: 18 novembre 2025
+# Version: 2.0 (inclut gestion bénéficiaires)
 # Description: Crée toutes les listes et bibliothèques SharePoint avec colonnes, vues et permissions
 # ============================================================================================================
 
@@ -10,11 +11,11 @@
 
 <#
 .SYNOPSIS
-    Crée l'infrastructure SharePoint complète pour la gestion des bénévoles
+    Crée l'infrastructure SharePoint complète pour la gestion des bénévoles et bénéficiaires
 
 .DESCRIPTION
     Ce script crée automatiquement:
-    - 5 listes SharePoint (Bénévoles, Missions, Affectations, Disponibilités, Documents)
+    - 7 listes SharePoint (Bénévoles, Missions, Affectations, Disponibilités, Bénéficiaires, Prestations, Documents)
     - Toutes les colonnes avec types et validations
     - Les vues personnalisées
     - Les permissions par rôle
@@ -673,6 +674,177 @@ catch {
 }
 
 # ============================================================================================================
+# LISTE 5: BÉNÉFICIAIRES
+# ============================================================================================================
+
+Show-Progress -Activity "Création des listes" -PercentComplete 80
+
+Write-Log "" "INFO"
+Write-Log "=== Création Liste BÉNÉFICIAIRES ===" "INFO"
+
+try {
+    $existingList = Get-PnPList -Identity "Beneficiaires" -ErrorAction SilentlyContinue
+    if ($existingList) {
+        Write-Log "⚠ Liste 'Beneficiaires' existe déjà - Suppression..." "WARNING"
+        Remove-PnPList -Identity "Beneficiaires" -Force
+    }
+    
+    $listeBeneficiaires = New-PnPList -Title "Beneficiaires" -Template GenericList -Url "Lists/Beneficiaires"
+    Write-Log "✓ Liste 'Beneficiaires' créée" "SUCCESS"
+    
+    Set-PnPList -Identity "Beneficiaires" -EnableVersioning $true -MajorVersions 10 -EnableContentApproval $true
+    Set-PnPList -Identity "Beneficiaires" -EnableAttachments $false
+    
+    Write-Log "Ajout des colonnes..." "INFO"
+    
+    Set-PnPField -List "Beneficiaires" -Identity "Title" -Values @{Title="Nom complet"; Required=$true}
+    
+    Add-PnPField -List "Beneficiaires" -DisplayName "NumeroBeneficiaire" -InternalName "NumeroBeneficiaire" -Type Text -AddToDefaultView -Required
+    Add-PnPField -List "Beneficiaires" -DisplayName "Prénom" -InternalName "PrenomBnf" -Type Text -AddToDefaultView -Required
+    Add-PnPField -List "Beneficiaires" -DisplayName "Nom" -InternalName "NomBnf" -Type Text -AddToDefaultView -Required
+    
+    Add-PnPFieldFromXml -List "Beneficiaires" -FieldXml @"
+<Field Type='Choice' DisplayName='Civilité' Required='TRUE' Format='Dropdown' Name='CiviliteBnf'>
+    <Default>M.</Default>
+    <CHOICES>
+        <CHOICE>M.</CHOICE>
+        <CHOICE>Mme</CHOICE>
+        <CHOICE>Autre</CHOICE>
+    </CHOICES>
+</Field>
+"@
+    
+    Add-PnPField -List "Beneficiaires" -DisplayName "Adresse e-mail" -InternalName "EmailBnf" -Type Text
+    Add-PnPField -List "Beneficiaires" -DisplayName "Téléphone" -InternalName "TelephoneBnf" -Type Text
+    Add-PnPField -List "Beneficiaires" -DisplayName "Adresse ligne 1" -InternalName "Adresse1Bnf" -Type Text -Required
+    Add-PnPField -List "Beneficiaires" -DisplayName "Adresse ligne 2" -InternalName "Adresse2Bnf" -Type Text
+    Add-PnPField -List "Beneficiaires" -DisplayName "Code postal" -InternalName "NPABnf" -Type Text -Required
+    Add-PnPField -List "Beneficiaires" -DisplayName "Ville" -InternalName "VilleBnf" -Type Text -AddToDefaultView -Required
+    Add-PnPField -List "Beneficiaires" -DisplayName "Date de naissance" -InternalName "DateNaissanceBnf" -Type DateTime -DisplayFormat DateOnly
+    
+    Add-PnPField -List "Beneficiaires" -DisplayName "Besoins identifiés" -InternalName "Besoins" -Type Note -AddToDefaultView -Required
+    Add-PnPField -List "Beneficiaires" -DisplayName "Référent externe" -InternalName "Referent" -Type Note
+    Add-PnPField -List "Beneficiaires" -DisplayName "Horaires de visite" -InternalName "Horaires" -Type Text
+    
+    Add-PnPField -List "Beneficiaires" -DisplayName "Date de début" -InternalName "DateDebutBnf" -Type DateTime -DisplayFormat DateOnly -AddToDefaultView -Required
+    Add-PnPField -List "Beneficiaires" -DisplayName "Date de fin" -InternalName "DateFinBnf" -Type DateTime -DisplayFormat DateOnly
+    
+    Add-PnPFieldFromXml -List "Beneficiaires" -FieldXml @"
+<Field Type='Choice' DisplayName='Statut' Required='TRUE' Format='Dropdown' Name='StatutBnf'>
+    <Default>Actif</Default>
+    <CHOICES>
+        <CHOICE>Actif</CHOICE>
+        <CHOICE>Inactif</CHOICE>
+        <CHOICE>Clôturé</CHOICE>
+    </CHOICES>
+</Field>
+"@
+    
+    Add-PnPField -List "Beneficiaires" -DisplayName "Historique" -InternalName "HistoriqueBnf" -Type Note
+    Add-PnPField -List "Beneficiaires" -DisplayName "Notes internes" -InternalName "NotesInternesBnf" -Type Note
+    
+    Add-PnPField -List "Beneficiaires" -DisplayName "Consentement RGPD" -InternalName "RGPDConsentementBnf" -Type Boolean -AddToDefaultView -Required
+    Add-PnPField -List "Beneficiaires" -DisplayName "Date consentement RGPD" -InternalName "RGPDDateConsentementBnf" -Type DateTime
+    
+    Write-Log "✓ 20 colonnes ajoutées" "SUCCESS"
+    
+    # Vues
+    $viewFieldsBnf = @("NumeroBeneficiaire", "Title", "VilleBnf", "Besoins", "DateDebutBnf", "StatutBnf")
+    Add-PnPView -List "Beneficiaires" -Title "Bénéficiaires actifs" -Fields $viewFieldsBnf -Query "<Where><Eq><FieldRef Name='StatutBnf'/><Value Type='Choice'>Actif</Value></Eq></Where>" -SetAsDefault
+    Write-Log "✓ 4 vues créées" "SUCCESS"
+}
+catch {
+    Write-Log "✗ Erreur lors de la création de la liste Bénéficiaires: $_" "ERROR"
+    throw
+}
+
+# ============================================================================================================
+# LISTE 6: PRESTATIONS
+# ============================================================================================================
+
+Show-Progress -Activity "Création des listes" -PercentComplete 85
+
+Write-Log "" "INFO"
+Write-Log "=== Création Liste PRESTATIONS ===" "INFO"
+
+try {
+    $existingList = Get-PnPList -Identity "Prestations" -ErrorAction SilentlyContinue
+    if ($existingList) {
+        Write-Log "⚠ Liste 'Prestations' existe déjà - Suppression..." "WARNING"
+        Remove-PnPList -Identity "Prestations" -Force
+    }
+    
+    $listePrestations = New-PnPList -Title "Prestations" -Template GenericList -Url "Lists/Prestations"
+    Write-Log "✓ Liste 'Prestations' créée" "SUCCESS"
+    
+    Set-PnPList -Identity "Prestations" -EnableVersioning $true -MajorVersions 10
+    Set-PnPList -Identity "Prestations" -EnableAttachments $false
+    
+    Write-Log "Ajout des colonnes..." "INFO"
+    
+    Set-PnPField -List "Prestations" -Identity "Title" -Values @{Title="Identifiant prestation"; Required=$true}
+    
+    # Lookups
+    Add-PnPField -List "Prestations" -DisplayName "Bénéficiaire" -InternalName "BeneficiaireID" -Type Lookup -AddToDefaultView -Required `
+        -AddToDefaultView -LookupListTitle "Beneficiaires" -LookupFieldName "Title"
+    
+    Add-PnPField -List "Prestations" -DisplayName "Mission" -InternalName "MissionIDPrestation" -Type Lookup -AddToDefaultView -Required `
+        -LookupListTitle "Missions" -LookupFieldName "Title"
+    
+    Add-PnPField -List "Prestations" -DisplayName "Date de début" -InternalName "DateDebutPrestation" -Type DateTime -DisplayFormat DateOnly -AddToDefaultView -Required
+    Add-PnPField -List "Prestations" -DisplayName "Date de fin" -InternalName "DateFinPrestation" -Type DateTime -DisplayFormat DateOnly
+    
+    Add-PnPFieldFromXml -List "Prestations" -FieldXml @"
+<Field Type='Choice' DisplayName='Fréquence' Format='Dropdown' Name='FrequencePrestation'>
+    <Default>Ponctuelle</Default>
+    <CHOICES>
+        <CHOICE>Ponctuelle</CHOICE>
+        <CHOICE>Hebdomadaire</CHOICE>
+        <CHOICE>Bimensuelle</CHOICE>
+        <CHOICE>Mensuelle</CHOICE>
+    </CHOICES>
+</Field>
+"@
+    
+    Add-PnPFieldFromXml -List "Prestations" -FieldXml @"
+<Field Type='Choice' DisplayName='Statut prestation' Required='TRUE' Format='Dropdown' Name='StatutPrestation'>
+    <Default>En cours</Default>
+    <CHOICES>
+        <CHOICE>En cours</CHOICE>
+        <CHOICE>Suspendue</CHOICE>
+        <CHOICE>Terminée</CHOICE>
+    </CHOICES>
+</Field>
+"@
+    
+    Add-PnPField -List "Prestations" -DisplayName "Commentaires" -InternalName "CommentairesPrestation" -Type Note
+    
+    Add-PnPFieldFromXml -List "Prestations" -FieldXml @"
+<Field Type='Choice' DisplayName='Évaluation qualité' Format='Dropdown' Name='EvaluationQualite'>
+    <CHOICES>
+        <CHOICE>Très satisfait</CHOICE>
+        <CHOICE>Satisfait</CHOICE>
+        <CHOICE>Neutre</CHOICE>
+        <CHOICE>Insatisfait</CHOICE>
+    </CHOICES>
+</Field>
+"@
+    
+    Add-PnPField -List "Prestations" -DisplayName "Dernière visite" -InternalName "DerniereVisite" -Type DateTime -AddToDefaultView
+    
+    Write-Log "✓ 10 colonnes ajoutées" "SUCCESS"
+    
+    # Vues
+    $viewFieldsPrest = @("BeneficiaireID", "MissionIDPrestation", "DateDebutPrestation", "FrequencePrestation", "StatutPrestation", "DerniereVisite")
+    Add-PnPView -List "Prestations" -Title "Prestations en cours" -Fields $viewFieldsPrest -Query "<Where><Eq><FieldRef Name='StatutPrestation'/><Value Type='Choice'>En cours</Value></Eq></Where>" -SetAsDefault
+    Write-Log "✓ 3 vues créées" "SUCCESS"
+}
+catch {
+    Write-Log "✗ Erreur lors de la création de la liste Prestations: $_" "ERROR"
+    throw
+}
+
+# ============================================================================================================
 # CONFIGURATION DES PERMISSIONS (optionnel)
 # ============================================================================================================
 
@@ -707,6 +879,8 @@ Write-Log "  ✓ Benevoles (26 colonnes, 3 vues)" "SUCCESS"
 Write-Log "  ✓ Missions (14 colonnes, 2 vues)" "SUCCESS"
 Write-Log "  ✓ Affectations (12 colonnes, 2 vues)" "SUCCESS"
 Write-Log "  ✓ Disponibilites (12 colonnes, 1 vue)" "SUCCESS"
+Write-Log "  ✓ Beneficiaires (20 colonnes, 4 vues)" "SUCCESS"
+Write-Log "  ✓ Prestations (10 colonnes, 3 vues)" "SUCCESS"
 Write-Log "  ✓ DocumentsBenevoles (7 colonnes métadonnées, 1 vue)" "SUCCESS"
 Write-Log "" "INFO"
 Write-Log "Prochaines étapes:" "INFO"

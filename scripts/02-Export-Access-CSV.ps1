@@ -2,6 +2,7 @@
 # Script: Export données Access vers CSV - Projet Gestion Bénévoles
 # Auteur: Joël Serrentino  
 # Date: 18 novembre 2025
+# Version: 2.0 (inclut bénéficiaires et prestations)
 # Description: Exporte toutes les tables Access en fichiers CSV pour migration vers SharePoint
 # ============================================================================================================
 
@@ -15,8 +16,10 @@
     Ce script:
     - Ouvre la base Access existante
     - Fusionne les tables PERSONNE + BENEVOLE
+    - Fusionne les tables PERSONNE + BENEFICIAIRE
     - Fusionne les tables ACTIVITE + EVENEMENT  
     - Fusionne les tables PARTICIPANT + DONNER
+    - Exporte la table RECEVOIR vers Prestations
     - Exporte chaque table vers CSV avec encodage UTF-8
     - Nettoie et transforme les données
 
@@ -314,6 +317,73 @@ ORDER BY
 Export-AccessTableToCSV -TableName "Localites" -OutputFile "$OutputFolder\Localites.csv" -SqlQuery $sqlLocalites | Out-Null
 
 # ============================================================================================================
+# EXPORT 5: BÉNÉFICIAIRES (PERSONNE + BENEFICIAIRE)
+# ============================================================================================================
+
+Write-Host ""
+Write-Host "=== Export BÉNÉFICIAIRES ===" -ForegroundColor Yellow
+
+$sqlBeneficiaires = @"
+SELECT 
+    B.PERSONNE_ID,
+    P.CIVILITE,
+    P.NOM,
+    P.PRENOM,
+    P.ADRESSE1,
+    P.ADRESSE2,
+    P.NPA,
+    P.VILLE,
+    P.TELEPHONE,
+    P.EMAIL,
+    P.DATENAISSANCE,
+    B.BNF_BESOINS AS Besoins,
+    B.BNF_REFERENT AS Referent,
+    B.BNF_HORAIRES AS Horaires,
+    B.BNF_DATEDEBUT AS DateDebut,
+    B.Historique
+FROM 
+    BENEFICIAIRE AS B
+    INNER JOIN PERSONNE AS P ON B.PERSONNE_ID = P.PERSONNE_ID
+ORDER BY
+    P.NOM, P.PRENOM
+"@
+
+Export-AccessTableToCSV -TableName "Beneficiaires" -OutputFile "$OutputFolder\Beneficiaires.csv" -SqlQuery $sqlBeneficiaires | Out-Null
+
+$csvBeneficiaires = Import-Csv "$OutputFolder\Beneficiaires.csv" -Encoding UTF8
+$countBeneficiaires = $csvBeneficiaires.Count
+Write-Host "  ✓ $countBeneficiaires bénéficiaires exportés" -ForegroundColor Green
+
+# ============================================================================================================
+# EXPORT 6: PRESTATIONS (table RECEVOIR)
+# ============================================================================================================
+
+Write-Host ""
+Write-Host "=== Export PRESTATIONS (RECEVOIR) ===" -ForegroundColor Yellow
+
+$sqlPrestations = @"
+SELECT 
+    R.BENEFICIAIRE_ID,
+    R.ACTIVITE_ID,
+    P.NOM AS NomBeneficiaire,
+    P.PRENOM AS PrenomBeneficiaire,
+    A.TITRE AS TitreMission
+FROM 
+    RECEVOIR AS R
+    INNER JOIN BENEFICIAIRE AS B ON R.BENEFICIAIRE_ID = B.PERSONNE_ID
+    INNER JOIN PERSONNE AS P ON B.PERSONNE_ID = P.PERSONNE_ID
+    INNER JOIN ACTIVITE AS A ON R.ACTIVITE_ID = A.ACTIVITE_ID
+ORDER BY
+    R.BENEFICIAIRE_ID, R.ACTIVITE_ID
+"@
+
+Export-AccessTableToCSV -TableName "Prestations" -OutputFile "$OutputFolder\Prestations.csv" -SqlQuery $sqlPrestations | Out-Null
+
+$csvPrestations = Import-Csv "$OutputFolder\Prestations.csv" -Encoding UTF8
+$countPrestations = $csvPrestations.Count
+Write-Host "  ✓ $countPrestations prestations exportées" -ForegroundColor Green
+
+# ============================================================================================================
 # FERMETURE ACCESS
 # ============================================================================================================
 
@@ -387,6 +457,43 @@ $csvMissionsEnrichies = $csvMissionsClean | ForEach-Object -Begin { $counter = 1
 $csvMissionsEnrichies | Export-Csv "$OutputFolder\Missions.csv" -Encoding UTF8 -NoTypeInformation -Force
 Write-Host "    ✓ Missions enrichies et nettoyées" -ForegroundColor Green
 
+# Nettoyer les bénéficiaires: ajouter colonnes manquantes
+Write-Host "  → Nettoyage fichier Bénéficiaires..." -ForegroundColor Cyan
+$csvBeneficiaires = Import-Csv "$OutputFolder\Beneficiaires.csv" -Encoding UTF8
+
+$csvBeneficiairesEnrichis = $csvBeneficiaires | ForEach-Object {
+    $_ | Add-Member -NotePropertyName "NumeroBeneficiaire" -NotePropertyValue ("BNF-" + ([string]$_.PERSONNE_ID).PadLeft(4, '0')) -Force
+    $_ | Add-Member -NotePropertyName "RGPDConsentement" -NotePropertyValue "Oui" -Force
+    $_ | Add-Member -NotePropertyName "RGPDDateConsentement" -NotePropertyValue (Get-Date -Format "yyyy-MM-dd HH:mm:ss") -Force
+    $_ | Add-Member -NotePropertyName "Statut" -NotePropertyValue "Actif" -Force
+    
+    # Nettoyer les dates vides
+    if ([string]::IsNullOrWhiteSpace($_.DateDebut)) {
+        $_.DateDebut = (Get-Date).AddMonths(-6).ToString("yyyy-MM-dd")
+    }
+    
+    $_
+}
+
+$csvBeneficiairesEnrichis | Export-Csv "$OutputFolder\Beneficiaires.csv" -Encoding UTF8 -NoTypeInformation -Force
+Write-Host "    ✓ Bénéficiaires enrichis et nettoyés" -ForegroundColor Green
+
+# Nettoyer les prestations: ajouter colonnes manquantes
+Write-Host "  → Nettoyage fichier Prestations..." -ForegroundColor Cyan
+$csvPrestations = Import-Csv "$OutputFolder\Prestations.csv" -Encoding UTF8
+
+$csvPrestationsEnrichies = $csvPrestations | ForEach-Object {
+    $_ | Add-Member -NotePropertyName "DateDebut" -NotePropertyValue (Get-Date).AddMonths(-3).ToString("yyyy-MM-dd") -Force
+    $_ | Add-Member -NotePropertyName "Frequence" -NotePropertyValue "Hebdomadaire" -Force
+    $_ | Add-Member -NotePropertyName "StatutPrestation" -NotePropertyValue "En cours" -Force
+    $_ | Add-Member -NotePropertyName "DerniereVisite" -NotePropertyValue (Get-Date -Format "yyyy-MM-dd HH:mm:ss") -Force
+    
+    $_
+}
+
+$csvPrestationsEnrichies | Export-Csv "$OutputFolder\Prestations.csv" -Encoding UTF8 -NoTypeInformation -Force
+Write-Host "    ✓ Prestations enrichies et nettoyées" -ForegroundColor Green
+
 # ============================================================================================================
 # RAPPORT FINAL
 # ============================================================================================================
@@ -400,6 +507,8 @@ Write-Host "Fichiers CSV créés:" -ForegroundColor White
 Write-Host "  ✓ Benevoles.csv         ($countBenevoles bénévoles)" -ForegroundColor Green
 Write-Host "  ✓ Missions.csv          ($($csvMissions.Count) missions)" -ForegroundColor Green
 Write-Host "  ✓ Affectations.csv      ($($csvAffectations.Count) affectations)" -ForegroundColor Green
+Write-Host "  ✓ Beneficiaires.csv     ($countBeneficiaires bénéficiaires)" -ForegroundColor Green
+Write-Host "  ✓ Prestations.csv       ($countPrestations prestations)" -ForegroundColor Green
 Write-Host "  ✓ Localites.csv         (table de référence)" -ForegroundColor Green
 Write-Host ""
 Write-Host "Dossier de sortie: $OutputFolder" -ForegroundColor Cyan
@@ -412,5 +521,5 @@ Write-Host "  1. Vérifier les fichiers CSV (ouvrir dans Excel)" -ForegroundColo
 Write-Host "  2. Compléter les champs manquants:" -ForegroundColor White
 Write-Host "     - ResponsableMission dans Missions.csv" -ForegroundColor White
 Write-Host "     - CompetencesRequises dans Missions.csv" -ForegroundColor White
-Write-Host "  3. Valider les consentements RGPD" -ForegroundColor White
+Write-Host "  3. Valider les consentements RGPD (bénévoles ET bénéficiaires)" -ForegroundColor White
 Write-Host ""

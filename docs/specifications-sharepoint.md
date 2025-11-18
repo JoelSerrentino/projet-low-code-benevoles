@@ -2,7 +2,21 @@
 # Projet Gestion Bénévoles - SAS
 
 **Date:** 18 novembre 2025  
-**Version:** 1.0
+**Version:** 2.0 (inclut gestion bénéficiaires)
+
+---
+
+## 🎯 Vue d'ensemble
+
+Ce document spécifie **7 listes SharePoint** pour la solution complète :
+
+1. **Bénévoles** (26 colonnes) - Gestion des volontaires
+2. **Missions** (14 colonnes) - Activités et événements
+3. **Affectations** (12 colonnes) - Bénévoles ↔ Missions
+4. **Disponibilités** (12 colonnes) - Planning bénévoles
+5. **Bénéficiaires** (20 colonnes) - Personnes aidées
+6. **Prestations** (10 colonnes) - Bénéficiaires ↔ Missions
+7. **Documents** (bibliothèque) - Pièces jointes
 
 ---
 
@@ -444,6 +458,8 @@
 - [ ] Créer liste Missions
 - [ ] Créer liste Affectations
 - [ ] Créer liste Disponibilités
+- [ ] Créer liste Bénéficiaires
+- [ ] Créer liste Prestations
 - [ ] Créer bibliothèque Documents
 
 ### Phase 2: Configuration

@@ -16,7 +16,7 @@
   - Desktop: 1366 x 768 (standard)
   - Tablette: 1024 x 768 (mode paysage)
 - **Sources de données:**
-  - SharePoint: Benevoles, Missions, Affectations, Disponibilites, DocumentsBenevoles
+  - SharePoint: Benevoles, Missions, Affectations, Disponibilites, DocumentsBenevoles, **Beneficiaires, Prestations**
   - Office 365 Users (pour infos utilisateur connecté)
   - Office 365 Outlook (pour notifications)
 
@@ -45,6 +45,7 @@ Structure à 3 niveaux:
 | KPI 2 | lbl_MissionsEnCours | Missions | `CountRows(Filter(Missions, StatutMission in ["Planifiée","En cours"]))` |
 | KPI 3 | lbl_MissionsAPourvoir | Missions | `CountRows(Filter(Missions, PlacesRestantes > 0 And DateDebut <= Today() + 7))` |
 | KPI 4 | lbl_NouveauxBenevoles | Benevoles | `CountRows(Filter(Benevoles, DateEntree >= Today() - 30))` |
+| KPI 5 | lbl_BeneficiairesActifs | Beneficiaires | `CountRows(Filter(Beneficiaires, Statut = "Actif"))` |
 | Graphique | chart_EvolutionBenevoles | Benevoles | Histogramme par mois (DateEntree) |
 | Alerte | gal_MissionsUrgentes | Missions | `Filter(Missions, Priorite = "Haute" And PlacesRestantes > 0)` |
 | Tableau | gal_ProchainsMissions | Missions | `Sort(Filter(Missions, DateDebut >= Today()), DateDebut, Ascending)` Top 5 |
@@ -645,6 +646,162 @@ icon_Notifications.Badge =
 
 ---
 
+## 📱 Écran 9: Gestion des Bénéficiaires
+
+**Nom technique:** `scr_ListeBeneficiaires`
+
+**Objectif:** Consulter et gérer les personnes recevant les services de l'association
+
+**Composants:**
+
+| Contrôle | Type | Propriété Items/OnSelect | Description |
+| --- | --- | --- | --- |
+| txt_RechercheBeneficiaire | TextInput | - | Recherche par nom/ville |
+| dropdown_FiltreStatutBnf | Dropdown | Items: `["Tous", "Actif", "Inactif", "Clôturé"]` | Filtre statut |
+| gal_Beneficiaires | Gallery (vertical) | `Filter(Beneficiaires, ...)` | Liste principale |
+| lbl_NomBeneficiaire | Label | `ThisItem.Title` | Nom affiché |
+| lbl_Ville | Label | `ThisItem.Ville` | Localité |
+| lbl_NombrePrestations | Label | `CountRows(Filter(Prestations, BeneficiaireID.ID = ThisItem.ID))` | Nombre de services actifs |
+| btn_VoirFiche | Button | `Navigate(scr_FicheBeneficiaire, ScreenTransition.Fade, {idBenef: ThisItem.ID})` | Détails |
+| btn_NouveauBeneficiaire | Button | `Navigate(scr_FicheBeneficiaire, ScreenTransition.Fade, {mode: "new"})` | Création |
+
+**Formule de filtrage:**
+
+```excel
+gal_Beneficiaires.Items = 
+    Sort(
+        Filter(
+            Beneficiaires,
+            (IsBlank(txt_RechercheBeneficiaire.Text) Or 
+             Title in txt_RechercheBeneficiaire.Text Or
+             Ville in txt_RechercheBeneficiaire.Text) And
+            (dropdown_FiltreStatutBnf.Selected.Value = "Tous" Or
+             Statut = dropdown_FiltreStatutBnf.Selected.Value)
+        ),
+        Nom,
+        Ascending
+    )
+```
+
+---
+
+## 📋 Écran 10: Fiche Bénéficiaire
+
+**Nom technique:** `scr_FicheBeneficiaire`
+
+**Objectif:** Afficher/modifier le profil d'un bénéficiaire
+
+**Composants:**
+
+| Section | Contrôle | Type | Formule/Source |
+| --- | --- | --- | --- |
+| Identité | datacard_NumeroBeneficiaire | DataCard | Auto-généré |
+| | datacard_Civilite | DataCard (Dropdown) | M./Mme/Autre |
+| | datacard_Nom | DataCard (TextInput) | Obligatoire |
+| | datacard_Prenom | DataCard (TextInput) | Obligatoire |
+| Coordonnées | datacard_Adresse1 | DataCard (TextInput) | Obligatoire |
+| | datacard_NPA | DataCard (TextInput) | Obligatoire |
+| | datacard_Ville | DataCard (TextInput) | Obligatoire |
+| | datacard_Telephone | DataCard (TextInput) | - |
+| | datacard_Email | DataCard (TextInput) | Format validé |
+| Informations | datacard_Besoins | DataCard (TextMultiline) | Services requis |
+| | datacard_Referent | DataCard (TextMultiline) | Contact externe |
+| | datacard_Horaires | DataCard (TextInput) | Créneaux visite |
+| Suivi | datacard_DateDebut | DataCard (DatePicker) | Début prise en charge |
+| | datacard_DateFin | DataCard (DatePicker) | Fin (optionnel) |
+| | datacard_Statut | DataCard (Dropdown) | Actif/Inactif/Clôturé |
+| | datacard_Historique | DataCard (TextMultiline enrichi) | Journal |
+| RGPD | datacard_RGPDConsentement | DataCard (Toggle) | Obligatoire si Actif |
+| Prestations | gal_PrestationsBeneficiaire | Gallery | `Filter(Prestations, BeneficiaireID.ID = varBeneficiaireActuel.ID)` |
+
+**Boutons d'action:**
+
+```excel
+// Sauvegarde
+btn_EnregistrerBeneficiaire.OnSelect = 
+    Patch(
+        Beneficiaires,
+        LookUp(Beneficiaires, ID = varBeneficiaireActuel.ID),
+        {
+            Title: datacard_Nom.Value & " " & datacard_Prenom.Value,
+            Nom: datacard_Nom.Value,
+            Prenom: datacard_Prenom.Value,
+            Statut: datacard_Statut.Selected.Value,
+            RGPDConsentement: datacard_RGPDConsentement.Value
+        }
+    );
+    Notify("Bénéficiaire enregistré", NotificationType.Success);
+    Navigate(scr_ListeBeneficiaires)
+
+// Validation RGPD
+datacard_Statut.OnChange = 
+    If(
+        datacard_Statut.Selected.Value = "Actif" And !datacard_RGPDConsentement.Value,
+        Notify("Le consentement RGPD est obligatoire pour un statut Actif", NotificationType.Error)
+    )
+```
+
+---
+
+## 🤝 Écran 11: Gestion des Prestations
+
+**Nom technique:** `scr_GestionPrestations`
+
+**Objectif:** Lier bénéficiaires et missions (services rendus)
+
+**Composants:**
+
+| Contrôle | Type | Propriété Items/OnSelect | Description |
+| --- | --- | --- | --- |
+| dropdown_BeneficiairePrestation | Dropdown | Items: `Beneficiaires` (Statut=Actif) | Sélection bénéficiaire |
+| dropdown_MissionPrestation | Dropdown | Items: `Missions` | Sélection mission/service |
+| date_DebutPrestation | DatePicker | Default: `Today()` | Début prestation |
+| date_FinPrestation | DatePicker | - | Fin prévue (optionnel) |
+| dropdown_Frequence | Dropdown | Items: `["Ponctuelle","Hebdomadaire","Bimensuelle","Mensuelle"]` | Récurrence |
+| txt_CommentairesPrestation | TextInput multiligne | - | Observations |
+| gal_PrestationsActives | Gallery | `Filter(Prestations, StatutPrestation = "En cours")` | Liste des prestations |
+| btn_CreerPrestation | Button | `Patch(...)` | Créer lien |
+
+**Formule de création:**
+
+```excel
+btn_CreerPrestation.OnSelect = 
+    Patch(
+        Prestations,
+        Defaults(Prestations),
+        {
+            Title: dropdown_MissionPrestation.Selected.Title & "-" & dropdown_BeneficiairePrestation.Selected.Title,
+            BeneficiaireID: {ID: dropdown_BeneficiairePrestation.Selected.ID},
+            MissionID: {ID: dropdown_MissionPrestation.Selected.ID},
+            DateDebut: date_DebutPrestation.SelectedDate,
+            DateFin: date_FinPrestation.SelectedDate,
+            Frequence: dropdown_Frequence.Selected.Value,
+            StatutPrestation: "En cours",
+            Commentaires: txt_CommentairesPrestation.Text,
+            DerniereVisite: Now()
+        }
+    );
+    Notify("Prestation créée avec succès", NotificationType.Success);
+    Reset(dropdown_BeneficiairePrestation);
+    Reset(dropdown_MissionPrestation)
+```
+
+**Alerte inactivité:**
+
+```excel
+// Badge rouge si dernière visite > 60 jours
+icon_AlerteInactivite.Visible = 
+    CountRows(
+        Filter(
+            Prestations,
+            DateDiff(DerniereVisite, Now(), Days) > 60 And
+            StatutPrestation = "En cours"
+        )
+    ) > 0
+```
+
+---
+
 ## 🔐 Gestion des permissions
 
 ### Affichage conditionnel selon rôle
@@ -710,11 +867,14 @@ cmp_MenuLateral.Visible = !varEstMobile
 - [ ] Écran Fiche Bénévole
 - [ ] Écran Liste Missions
 - [ ] Écran Affectation
+- [ ] Écran Liste Bénéficiaires
+- [ ] Écran Fiche Bénéficiaire
 
 ### Phase 3: Écrans avancés
 - [ ] Wizard Onboarding
 - [ ] Gestion Disponibilités
 - [ ] Gestion Documents
+- [ ] Gestion Prestations (Bénéficiaires ↔ Missions)
 
 ### Phase 4: Logique métier
 - [ ] Algorithme matching intelligent

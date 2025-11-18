@@ -2,6 +2,7 @@
 # Script: Vérification Migration Access → SharePoint - Projet Gestion Bénévoles
 # Auteur: Joël Serrentino  
 # Date: 18 novembre 2025
+# Version: 2.0 (inclut bénéficiaires et prestations)
 # Description: Vérifie l'intégrité et la complétude de la migration
 # ============================================================================================================
 
@@ -14,10 +15,10 @@
 
 .DESCRIPTION
     Ce script:
-    - Compare les comptages Access vs SharePoint
+    - Compare les comptages Access vs SharePoint (bénévoles, missions, affectations, bénéficiaires, prestations)
     - Vérifie l'intégrité des lookups
     - Valide la qualité des données
-    - Génère un rapport de vérification
+    - Génère un rapport de vérification HTML
 
 .PARAMETER AccessDbPath
     Chemin vers la base Access d'origine
@@ -222,6 +223,48 @@ $verificationResults.Comparaisons += @{
     Statut = $statusAffectations
 }
 
+# Bénéficiaires (fusion PERSONNE + BENEFICIAIRE)
+Write-Host "Bénéficiaires:" -ForegroundColor Cyan
+$countAccessBeneficiaires = Get-AccessRecordCount -TableName "BENEFICIAIRE"
+$countSharePointBeneficiaires = Get-SharePointItemCount -ListName "Beneficiaires"
+
+$deltaBeneficiaires = $countSharePointBeneficiaires - $countAccessBeneficiaires
+$statusBeneficiaires = if ($deltaBeneficiaires -eq 0) { "✓ OK" } elseif ($deltaBeneficiaires -lt 0) { "✗ MANQUE" } else { "⚠ TROP" }
+
+Write-Host "  Access:     $countAccessBeneficiaires bénéficiaires" -ForegroundColor White
+Write-Host "  SharePoint: $countSharePointBeneficiaires bénéficiaires" -ForegroundColor White
+Write-Host "  Différence: $deltaBeneficiaires | $statusBeneficiaires" -ForegroundColor $(if ($deltaBeneficiaires -eq 0) { "Green" } else { "Red" })
+Write-Host ""
+
+$verificationResults.Comparaisons += @{
+    Entite = "Bénéficiaires"
+    Access = $countAccessBeneficiaires
+    SharePoint = $countSharePointBeneficiaires
+    Delta = $deltaBeneficiaires
+    Statut = $statusBeneficiaires
+}
+
+# Prestations (table RECEVOIR)
+Write-Host "Prestations:" -ForegroundColor Cyan
+$countAccessPrestations = Get-AccessRecordCount -TableName "RECEVOIR"
+$countSharePointPrestations = Get-SharePointItemCount -ListName "Prestations"
+
+$deltaPrestations = $countSharePointPrestations - $countAccessPrestations
+$statusPrestations = if ($deltaPrestations -eq 0) { "✓ OK" } elseif ($deltaPrestations -lt 0) { "✗ MANQUE" } else { "⚠ TROP" }
+
+Write-Host "  Access:     $countAccessPrestations prestations (RECEVOIR)" -ForegroundColor White
+Write-Host "  SharePoint: $countSharePointPrestations prestations" -ForegroundColor White
+Write-Host "  Différence: $deltaPrestations | $statusPrestations" -ForegroundColor $(if ($deltaPrestations -eq 0) { "Green" } else { "Red" })
+Write-Host ""
+
+$verificationResults.Comparaisons += @{
+    Entite = "Prestations"
+    Access = $countAccessPrestations
+    SharePoint = $countSharePointPrestations
+    Delta = $deltaPrestations
+    Statut = $statusPrestations
+}
+
 # ============================================================================================================
 # VÉRIFICATION 2: INTÉGRITÉ DES LOOKUPS
 # ============================================================================================================
@@ -254,6 +297,32 @@ Write-Host ""
 
 $verificationResults.Statistiques["AffectationsSansBenevole"] = $affectationsSansBenevole
 $verificationResults.Statistiques["AffectationsSansMission"] = $affectationsSansMission
+
+Write-Host "Vérification des références Prestations..." -ForegroundColor Cyan
+
+$prestations = Get-PnPListItem -List "Prestations" -PageSize 500
+
+$prestationsSansBeneficiaire = 0
+$prestationsSansMission = 0
+
+foreach ($prest in $prestations) {
+    if ($null -eq $prest["BeneficiaireID"]) {
+        $prestationsSansBeneficiaire++
+        $verificationResults.ProblemesTrouves += "Prestation ID=$($prest.Id) sans BeneficiaireID"
+    }
+    
+    if ($null -eq $prest["MissionIDPrestation"]) {
+        $prestationsSansMission++
+        $verificationResults.ProblemesTrouves += "Prestation ID=$($prest.Id) sans MissionID"
+    }
+}
+
+Write-Host "  Prestations sans bénéficiaire: $prestationsSansBeneficiaire" -ForegroundColor $(if ($prestationsSansBeneficiaire -eq 0) { "Green" } else { "Red" })
+Write-Host "  Prestations sans mission: $prestationsSansMission" -ForegroundColor $(if ($prestationsSansMission -eq 0) { "Green" } else { "Red" })
+Write-Host ""
+
+$verificationResults.Statistiques["PrestationsSansBeneficiaire"] = $prestationsSansBeneficiaire
+$verificationResults.Statistiques["PrestationsSansMission"] = $prestationsSansMission
 
 # ============================================================================================================
 # VÉRIFICATION 3: QUALITÉ DES DONNÉES
@@ -320,6 +389,41 @@ Write-Host ""
 
 $verificationResults.Statistiques["MissionsSansResponsable"] = $missionsSansResponsable
 $verificationResults.Statistiques["MissionsSansDate"] = $missionsSansDate
+
+# Analyse des bénéficiaires
+Write-Host "Analyse des bénéficiaires..." -ForegroundColor Cyan
+
+$beneficiaires = Get-PnPListItem -List "Beneficiaires" -PageSize 500
+
+$beneficiairesSansAdresse = 0
+$beneficiairesSansBesoins = 0
+$beneficiairesSansRGPD = 0
+
+foreach ($benef in $beneficiaires) {
+    if ([string]::IsNullOrWhiteSpace($benef["Adresse1Bnf"]) -or [string]::IsNullOrWhiteSpace($benef["VilleBnf"])) {
+        $beneficiairesSansAdresse++
+        $verificationResults.ProblemesTrouves += "Bénéficiaire '$($benef["Title"])' (ID=$($benef.Id)) sans adresse complète"
+    }
+    
+    if ([string]::IsNullOrWhiteSpace($benef["Besoins"])) {
+        $beneficiairesSansBesoins++
+        $verificationResults.ProblemesTrouves += "Bénéficiaire '$($benef["Title"])' (ID=$($benef.Id)) sans besoins identifiés"
+    }
+    
+    if ($benef["RGPDConsentementBnf"] -ne $true) {
+        $beneficiairesSansRGPD++
+        $verificationResults.ProblemesTrouves += "Bénéficiaire '$($benef["Title"])' (ID=$($benef.Id)) sans consentement RGPD"
+    }
+}
+
+Write-Host "  Bénéficiaires sans adresse: $beneficiairesSansAdresse" -ForegroundColor $(if ($beneficiairesSansAdresse -eq 0) { "Green" } else { "Red" })
+Write-Host "  Bénéficiaires sans besoins: $beneficiairesSansBesoins" -ForegroundColor $(if ($beneficiairesSansBesoins -eq 0) { "Green" } else { "Yellow" })
+Write-Host "  Bénéficiaires sans RGPD: $beneficiairesSansRGPD" -ForegroundColor $(if ($beneficiairesSansRGPD -eq 0) { "Green" } else { "Red" })
+Write-Host ""
+
+$verificationResults.Statistiques["BeneficiairesSansAdresse"] = $beneficiairesSansAdresse
+$verificationResults.Statistiques["BeneficiairesSansBesoins"] = $beneficiairesSansBesoins
+$verificationResults.Statistiques["BeneficiairesSansRGPD"] = $beneficiairesSansRGPD
 
 # ============================================================================================================
 # VÉRIFICATION 4: DOUBLONS

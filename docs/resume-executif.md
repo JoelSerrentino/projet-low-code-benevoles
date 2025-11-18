@@ -38,6 +38,8 @@ Les bénévoles n'ont pas d'accès direct à l'application. La gestion se fait p
 | PERSONNE + BENEVOLE | ➜ | Liste "Bénévoles" (fusionnée) |
 | ACTIVITE + EVENEMENT | ➜ | Liste "Missions" (unifiée) |
 | PARTICIPANT + DONNER | ➜ | Liste "Affectations" |
+| PERSONNE + BENEFICIAIRE | ➜ | Liste "Bénéficiaires" (fusionnée) |
+| RECEVOIR | ➜ | Liste "Prestations" (services rendus) |
 | *(Nouveau)* | ➜ | Liste "Disponibilités" (structuré) |
 | *(Nouveau)* | ➜ | Bibliothèque "Documents Bénévoles" |
 
@@ -47,7 +49,7 @@ Les bénévoles n'ont pas d'accès direct à l'application. La gestion se fait p
 
 ### 3. Spécifications techniques détaillées
 
-**5 listes SharePoint spécifiées:**
+**7 listes SharePoint spécifiées:**
 
 #### Liste 1: Bénévoles
 - **26 colonnes** définies (coordonnées, compétences, statut, RGPD)
@@ -70,20 +72,30 @@ Les bénévoles n'ont pas d'accès direct à l'application. La gestion se fait p
 - **3 vues** + vue calendrier
 - Validation anti-chevauchements
 
-#### Liste 5: Documents Bénévoles (Bibliothèque)
+#### Liste 5: Bénéficiaires
+- **20 colonnes** (identité, coordonnées, besoins, suivi, RGPD)
+- **4 vues** (actifs, nouveaux, clôturés, conformité RGPD)
+- Gestion des personnes recevant les services
+
+#### Liste 6: Prestations
+- **10 colonnes** (bénéficiaire↔mission, fréquence, statut)
+- **3 vues** (en cours, par mission, alertes inactivité)
+- Suivi des services rendus aux bénéficiaires
+
+#### Liste 7: Documents Bénévoles (Bibliothèque)
 - **8 colonnes de métadonnées** (type, expiration, confidentialité)
 - **3 vues** (actifs, expirants, par bénévole)
 - Alertes automatiques
 
-📄 Voir: `docs/specifications-sharepoint.md` (document de 400+ lignes)
+📄 Voir: `docs/specifications-sharepoint.md` (document de 500+ lignes)
 
 ---
 
 ### 4. Architecture Power Apps complète
 
-**8 écrans définis:**
+**11 écrans définis:**
 
-1. 🏠 **Accueil/Dashboard** - KPIs et alertes
+1. 🏠 **Accueil/Dashboard** - KPIs bénévoles + bénéficiaires et alertes
 2. 👥 **Liste Bénévoles** - Recherche et filtres avancés
 3. 📝 **Fiche Bénévole** - Formulaire complet (4 onglets)
 4. 📋 **Gestion Missions** - Vue d'ensemble missions
@@ -91,16 +103,19 @@ Les bénévoles n'ont pas d'accès direct à l'application. La gestion se fait p
 6. ✨ **Onboarding Wizard** - Parcours guidé 5 étapes
 7. 📅 **Gestion Disponibilités** - Interface calendrier
 8. 📄 **Documents** - Upload et suivi
+9. 🤝 **Liste Bénéficiaires** - Personnes recevant les services
+10. 📋 **Fiche Bénéficiaire** - Profil complet (besoins, référent, suivi)
+11. 🔗 **Gestion Prestations** - Services rendus (bénéficiaires ↔ missions)
 
 **Composants réutilisables:**
 - Header personnalisé
 - Menu latéral
-- Carte bénévole
+- Carte bénévole + carte bénéficiaire
 - Filtre recherche
 
 **Algorithme de matching intelligent** défini avec formules Power Apps complètes.
 
-📄 Voir: `docs/architecture-power-apps.md` (document de 500+ lignes)
+📄 Voir: `docs/architecture-power-apps.md` (document de 800+ lignes)
 
 ---
 
@@ -138,19 +153,23 @@ Les bénévoles n'ont pas d'accès direct à l'application. La gestion se fait p
 | `projet-low-code-benevoles.md` | 3 | Cahier des charges original |
 | `docs/analyse-access-structure.md` | 5 | Analyse complète base Access |
 | `docs/mapping-access-sharepoint.md` | 15 | Plan de migration détaillé |
-| `docs/specifications-sharepoint.md` | 20 | Spécifications techniques listes |
-| `docs/architecture-power-apps.md` | 25 | Architecture application complète |
+| `docs/specifications-sharepoint.md` | 25 | Spécifications 7 listes SharePoint |
+| `docs/architecture-power-apps.md` | 32 | Architecture app (11 écrans) |
 | `docs/workflows-power-automate.md` | 18 | Workflows et automatisations |
 
 **Total:** ~96 pages de documentation technique professionnelle
 
-### Scripts PowerShell
+### Scripts PowerShell d'automatisation
 
-| Script | Localisation | Fonctionnalité |
-| --- | --- | --- |
-| `Analyser-BaseAccess.ps1` | `D:\_Projets\bd_SAS-Benevolat\scripts\` | ✅ Analyse structure Access (créé et testé) |
-| `Migration-Access-SharePoint.ps1` | *(à créer)* | Import données dans SharePoint |
-| `Creation-Listes-SharePoint.ps1` | *(à créer)* | Création automatique des listes |
+| Script | Lignes | Fonctionnalité | Statut |
+| --- | --- | --- | --- |
+| `Analyser-BaseAccess.ps1` | ~200 | Analyse structure Access | ✅ Testé |
+| `01-Creation-Listes-SharePoint.ps1` | ~900 | Création 7 listes SharePoint | ✅ Complet |
+| `02-Export-Access-CSV.ps1` | ~480 | Export Access → CSV (6 fichiers) | ✅ Complet |
+| `03-Import-SharePoint.ps1` | ~550 | Import CSV → SharePoint | ✅ Complet |
+| `04-Verification-Migration.ps1` | ~630 | Rapport HTML de vérification | ✅ Complet |
+
+**Total:** ~2760 lignes de code PowerShell prêt à l'emploi
 
 ---
 
@@ -174,10 +193,13 @@ Les bénévoles n'ont pas d'accès direct à l'application. La gestion se fait p
    - Nouveau site d'équipe "Gestion Bénévoles SAS"
    - Configurer permissions de base
 
-4. **Créer les listes SharePoint**
-   - Suivre `specifications-sharepoint.md` pas-à-pas
-   - Créer colonnes, vues, validations
-   - **Je peux créer un script PowerShell pour automatiser cela**
+4. **Créer les listes SharePoint automatiquement** ✅
+   ```powershell
+   .\01-Creation-Listes-SharePoint.ps1 -SiteUrl "https://[tenant].sharepoint.com/sites/Benevoles"
+   ```
+   - Crée 7 listes (Bénévoles, Missions, Affectations, Disponibilités, Bénéficiaires, Prestations, Documents)
+   - Configure colonnes, vues, validations
+   - Durée: 4-6 minutes
 
 ### Phase 3: Migration données (1 semaine)
 
@@ -186,10 +208,21 @@ Les bénévoles n'ont pas d'accès direct à l'application. La gestion se fait p
    - Corriger formats (emails, téléphones)
    - Normaliser listes de choix
 
-6. **Importer dans SharePoint**
-   - Exporter Access en CSV
-   - **Je peux créer un script PowerShell d'import automatique**
-   - Vérifier intégrité post-migration
+6. **Importer dans SharePoint automatiquement** ✅
+   ```powershell
+   # Étape 1: Exporter Access
+   .\02-Export-Access-CSV.ps1
+   
+   # Étape 2: Importer SharePoint
+   .\03-Import-SharePoint.ps1 -SiteUrl "https://[tenant].sharepoint.com/sites/Benevoles"
+   
+   # Étape 3: Vérifier
+   .\04-Verification-Migration.ps1 -SiteUrl "https://[tenant].sharepoint.com/sites/Benevoles"
+   ```
+   - Export 6 fichiers CSV (Bénévoles, Missions, Affectations, Bénéficiaires, Prestations, Localités)
+   - Import automatique avec gestion lookups
+   - Rapport HTML de vérification
+   - Durée totale: 12-20 minutes
 
 ### Phase 4: Développement (2-3 semaines)
 
@@ -217,53 +250,60 @@ Les bénévoles n'ont pas d'accès direct à l'application. La gestion se fait p
 
 ---
 
-## 💪 Comment je peux continuer à vous aider
+## 💪 Comment continuer
 
-### 1. Scripts d'automatisation
+### 1. Prochaine étape immédiate: Exécution des scripts ✅
 
-**Je peux créer pour vous:**
+**Tout est prêt pour la migration automatisée:**
 
-✅ **Script de création des listes SharePoint**
-```powershell
-# Création automatique de toutes les listes avec:
-# - Toutes les colonnes configurées
-# - Validations et colonnes calculées
-# - Vues personnalisées
-# - Permissions
-```
+1. **Créer votre site SharePoint**
+   - Nom suggéré: "Gestion Bénévoles SAS"
+   - Template: Site d'équipe
+   - URL: `https://[votre-tenant].sharepoint.com/sites/GestionBenevoles`
 
-✅ **Script d'import des données**
-```powershell
-# Migration Access → SharePoint avec:
-# - Export automatique des tables Access
-# - Transformation des données
-# - Import dans les listes SharePoint
-# - Vérification intégrité
-```
+2. **Exécuter les 4 scripts PowerShell** (durée totale: ~20 minutes)
+   ```powershell
+   # 1. Créer les listes (4-6 min)
+   .\01-Creation-Listes-SharePoint.ps1 -SiteUrl "https://[tenant].sharepoint.com/sites/GestionBenevoles"
+   
+   # 2. Exporter Access (2-4 min)
+   .\02-Export-Access-CSV.ps1
+   
+   # 3. Importer SharePoint (6-10 min)
+   .\03-Import-SharePoint.ps1 -SiteUrl "https://[tenant].sharepoint.com/sites/GestionBenevoles"
+   
+   # 4. Vérifier migration (3-5 min)
+   .\04-Verification-Migration.ps1 -SiteUrl "https://[tenant].sharepoint.com/sites/GestionBenevoles"
+   ```
+
+3. **Résultat: Infrastructure SharePoint complète**
+   - 7 listes SharePoint configurées
+   - Toutes vos données migrées
+   - Rapport HTML de vérification
+   - Prêt pour Power Apps
 
 ### 2. Développement Power Apps
 
-**Je peux vous guider pour:**
-- Créer chaque écran pas-à-pas
-- Écrire les formules Power Apps
-- Implémenter la logique métier
-- Optimiser les performances
+**Documentation complète fournie:**
+- 11 écrans détaillés dans `architecture-power-apps.md`
+- Formules Power Apps prêtes à copier
+- Composants réutilisables définis
+- Guide de création étape par étape
 
 ### 3. Configuration Power Automate
 
-**Je peux vous aider à:**
-- Créer chaque flux automatiquement
-- Tester les workflows
-- Débugger les erreurs
-- Optimiser les performances
+**7 workflows documentés:**
+- Déclencheurs et actions détaillés
+- Templates d'emails HTML
+- Logique conditionnelle
+- Gestion d'erreurs
 
-### 4. Formation et support
+### 4. Support et formation
 
-**Je peux fournir:**
-- Documentation utilisateur
-- Tutoriels vidéo (scripts)
-- Guides de dépannage
-- FAQ technique
+**Besoin d'aide ?**
+- Guide d'exécution complet: `docs/guide-execution-scripts.md`
+- FAQ et troubleshooting inclus
+- Documentation technique complète (100+ pages)
 
 ---
 

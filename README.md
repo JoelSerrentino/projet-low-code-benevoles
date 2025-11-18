@@ -5,16 +5,17 @@
 ## 📋 Vue d'ensemble
 
 Ce projet vise à remplacer la base de données Microsoft Access actuelle par une solution moderne basée sur **Microsoft Power Platform** :
-- **Power Apps Canvas** pour l'interface utilisateur
+- **Power Apps Canvas** pour l'interface utilisateur (coordinateurs uniquement)
 - **SharePoint Online** pour le stockage des données
 - **Power Automate** pour les automatisations
 - **Microsoft 365** pour l'authentification et les notifications
 
 ### Objectifs principaux
-1. ✅ Centraliser les données bénévoles (coordonnées, compétences, certificats)
+1. ✅ Centraliser les données bénévoles et bénéficiaires (coordonnées, compétences, besoins)
 2. ⚡ Automatiser l'affectation et les notifications liées aux missions
 3. 📊 Tableau de bord temps réel pour la planification
-4. 🔒 Garantir la conformité RGPD
+4. 🤝 Suivre les prestations aux bénéficiaires
+5. 🔒 Garantir la conformité RGPD
 
 ---
 
@@ -89,9 +90,9 @@ projet-low-code-benevoles/
    cd "D:\_Projets\bd_SAS-Benevolat\scripts"
    .\01-Creation-Listes-SharePoint.ps1 -SiteUrl "https://[tenant].sharepoint.com/sites/GestionBenevoles"
    ```
-   - ✅ Crée automatiquement 5 listes (Bénévoles, Missions, Affectations, Disponibilités, Documents)
-   - ✅ Configure 26+14+12+12+7 colonnes avec types, validations, vues
-   - ✅ Durée: 3-5 minutes
+   - ✅ Crée automatiquement 7 listes (Bénévoles, Missions, Affectations, Disponibilités, Bénéficiaires, Prestations, Documents)
+   - ✅ Configure colonnes avec types, validations, vues
+   - ✅ Durée: 4-6 minutes
 
 #### Phase 3: Import données (Semaine 4)
 
@@ -99,9 +100,9 @@ projet-low-code-benevoles/
    ```powershell
    .\02-Export-Access-CSV.ps1
    ```
-   - ✅ Fusionne PERSONNE+BENEVOLE, ACTIVITE+EVENEMENT, PARTICIPANT+DONNER
-   - ✅ Génère 4 fichiers CSV avec nettoyage automatique
-   - ✅ Durée: 2-3 minutes
+   - ✅ Fusionne PERSONNE+BENEVOLE, ACTIVITE+EVENEMENT, PARTICIPANT+DONNER, PERSONNE+BENEFICIAIRE, RECEVOIR
+   - ✅ Génère fichiers CSV avec nettoyage automatique
+   - ✅ Durée: 2-4 minutes
 
 7. **Importer dans SharePoint** ✅
    ```powershell
@@ -130,10 +131,11 @@ projet-low-code-benevoles/
 
 10. **Développer les écrans**
     - ✅ Accueil / Dashboard
-    - ✅ Liste bénévoles
-    - ✅ Fiche bénévole
+    - ✅ Liste bénévoles + Fiche bénévole
+    - ✅ Liste bénéficiaires + Fiche bénéficiaire
     - ✅ Gestion missions
     - ✅ Affectations
+    - ✅ Prestations (services aux bénéficiaires)
     - ✅ Onboarding
     - ✅ Disponibilités
 
@@ -183,16 +185,20 @@ projet-low-code-benevoles/
 ```
 Bénévoles (1) ──────< Affectations >────── (N) Missions
     │                                            │
+    │                                            ├──< Types: Récurrentes / Ponctuelles
+    └──< Disponibilités                          │
     │                                            │
-    └──< Disponibilités                          └──< Types: Récurrentes / Ponctuelles
-    │
-    └──< Documents Bénévoles
+    └──< Documents Bénévoles                     │
+                                                 │
+Bénéficiaires (1) ──< Prestations >─────────────┘
 ```
 
 **Listes SharePoint:**
 - `Benevoles` : 200+ enregistrements (profils complets)
 - `Missions` : ~80/an (récurrentes + ponctuelles)
-- `Affectations` : ~1000/an (liens bénévoles ↔ missions)
+- `Affectations` : ~1000/an (bénévoles → missions)
+- `Beneficiaires` : Personnes aidées (profils, besoins)
+- `Prestations` : Services rendus (bénéficiaires ↔ missions)
 - `Disponibilites` : Planning individuel
 - `DocumentsBenevoles` : Bibliothèque (certificats, contrats)
 
