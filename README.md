@@ -1,4 +1,4 @@
-# Projet Low-Code Gestion Bénévoles SAS
+﻿# Projet Low-Code Gestion Bénévoles SAS
 
 > Application Power Apps pour moderniser la gestion de plus de 200 bénévoles avec centralisation des profils, automatisation des affectations et suivi des missions.
 
@@ -338,5 +338,6 @@ Ce projet est la propriété de **SAS (Service d'Aide et de Soins)**. Toutes les
 ---
 
 **Dernière mise à jour :** 18 novembre 2025  
-**Version documentation :** 1.0
+**Version documentation :** 2.0
 Projet Low-code Gestion Bénévoles
+
