@@ -11,6 +11,7 @@
 ### Informations générales
 - **Nom:** Gestion Bénévoles SAS
 - **Icône:** 👥 (personnalisable)
+- **Public cible:** Coordinateurs et administrateurs uniquement
 - **Résolution cible:** 
   - Desktop: 1366 x 768 (standard)
   - Tablette: 1024 x 768 (mode paysage)

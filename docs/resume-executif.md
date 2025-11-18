@@ -6,6 +6,13 @@
 
 ---
 
+## 👥 Utilisateurs de l'application
+
+**Application Power Apps :** Réservée aux **coordinateurs et administrateurs uniquement**  
+Les bénévoles n'ont pas d'accès direct à l'application. La gestion se fait par les coordinateurs.
+
+---
+
 ## ✅ Ce qui a été réalisé
 
 ### 1. Analyse complète de votre base Access existante

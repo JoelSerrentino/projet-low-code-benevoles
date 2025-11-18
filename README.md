@@ -75,8 +75,7 @@ projet-low-code-benevoles/
 
 3. **Créer les groupes de sécurité M365**
    - Administrateurs Bénévoles
-   - Coordinateurs Bénévoles  
-   - Bénévoles Actifs
+   - Coordinateurs Bénévoles
 
 #### Phase 2: Création structure SharePoint (Semaine 3)
 
@@ -206,8 +205,7 @@ Bénévoles (1) ──────< Affectations >────── (N) Mission
 | Rôle | Accès Bénévoles | Accès Missions | Accès Documents |
 | --- | --- | --- | --- |
 | **Administrateur** | Contrôle total | Contrôle total | Tous documents |
-| **Coordinateur** | Lecture (actifs) | Modification (leurs missions) | Public interne |
-| **Bénévole** | Leur profil uniquement | Lecture (où affectés) | Leurs documents |
+| **Coordinateur** | Lecture/Écriture | Création/Modification | Documents internes |
 
 ### Conformité RGPD
 
