@@ -2,7 +2,7 @@
 # Fichier: D:\_Projets\bd_SAS-Benevolat\SAS-Benevolat.accdb
 
 $accessFile = "D:\_Projets\bd_SAS-Benevolat\SAS-Benevolat.accdb"
-$outputFile = "D:\_Projets\bd_SAS-Benevolat\analyse-access-structure.md"
+$outputFile = "vscode-vfs://github/JoelSerrentino/projet-low-code-benevoles/docs/analyse-access-structure.md"
 
 Write-Host "Analyse de la base Access: $accessFile" -ForegroundColor Green
 
@@ -55,7 +55,7 @@ try {
                 $output += "| $($field.Name) | $typeName | $size | $required | |"
             }
             
-            $output += "`n**Nombre d'enregistrements:** À compter"
+            $output += "`n**Nombre d'enregistrements:** Vérifier dans Access"
             $output += "`n"
         }
     }
@@ -77,28 +77,20 @@ try {
     $output += "`n## Formulaires Access`n"
     
     $formCount = 0
-    try {
-        foreach ($obj in $access.CurrentProject.AllForms) {
-            $formCount++
-            $output += "### Formulaire $($formCount): **$($obj.Name)**"
-            $output += "- À recréer comme écran Power Apps`n"
-        }
-    } catch {
-        $output += "- Impossible de lister les formulaires automatiquement`n"
+    foreach ($obj in $access.CurrentData().AllForms) {
+        $formCount++
+        $output += "### Formulaire $($formCount): **$($obj.Name)**"
+        $output += "- À recréer comme écran Power Apps`n"
     }
     
     # Analyser les états (rapports)
     $output += "`n## États/Rapports`n"
     
     $reportCount = 0
-    try {
-        foreach ($obj in $access.CurrentProject.AllReports) {
-            $reportCount++
-            $output += "### Rapport $($reportCount): **$($obj.Name)**"
-            $output += "- À reproduire via Power BI ou export Excel depuis Power Apps`n"
-        }
-    } catch {
-        $output += "- Impossible de lister les rapports automatiquement`n"
+    foreach ($obj in $access.CurrentData().AllReports) {
+        $reportCount++
+        $output += "### Rapport $($reportCount): **$($obj.Name)**"
+        $output += "- À reproduire via Power BI ou export Excel depuis Power Apps`n"
     }
     
     # Résumé
@@ -115,14 +107,14 @@ try {
     [System.Runtime.Interopservices.Marshal]::ReleaseComObject($access) | Out-Null
     
     # Sauvegarder le résultat
-    $output -join "`n" | Out-File -FilePath $outputFile -Encoding UTF8
+    $output -join "`n" | Out-File -FilePath "D:\_Projets\bd_SAS-Benevolat\analyse-access-structure.md" -Encoding UTF8
     
     Write-Host "`nAnalyse terminée !" -ForegroundColor Green
-    Write-Host "Fichier créé: $outputFile" -ForegroundColor Cyan
+    Write-Host "Fichier créé: D:\_Projets\bd_SAS-Benevolat\analyse-access-structure.md" -ForegroundColor Cyan
     
     # Afficher un aperçu
     Write-Host "`n--- APERÇU ---" -ForegroundColor Yellow
-    $output | Select-Object -First 50 | ForEach-Object { Write-Host $_ }
+    $output | Select-Object -First 30 | ForEach-Object { Write-Host $_ }
     
 } catch {
     Write-Host "Erreur lors de l'analyse: $_" -ForegroundColor Red
@@ -132,3 +124,4 @@ try {
         try { $access.Quit() } catch {}
     }
 }
+
