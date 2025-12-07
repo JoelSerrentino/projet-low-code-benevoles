@@ -100,7 +100,11 @@ Write-Log "Site cible: $SiteUrl" "INFO"
 
 try {
     Write-Log "Connexion à SharePoint..." "INFO"
-    Connect-PnPOnline -Url $SiteUrl -Interactive
+    Write-Log "Une fenêtre de connexion va s'ouvrir dans votre navigateur..." "INFO"
+    
+    # Connexion avec l'application Entra ID enregistrée
+    Connect-PnPOnline -Url $SiteUrl -Interactive -ClientId "13c089c9-8dc9-43fb-8676-039c61c0dfac"
+    
     Write-Log "✓ Connecté avec succès" "SUCCESS"
     
     $web = Get-PnPWeb
@@ -108,6 +112,10 @@ try {
 }
 catch {
     Write-Log "✗ Erreur de connexion: $_" "ERROR"
+    Write-Log "Veuillez vérifier:" "WARNING"
+    Write-Log "  - Que vous avez les permissions sur le site SharePoint" "WARNING"
+    Write-Log "  - Que l'URL est correcte: $SiteUrl" "WARNING"
+    Write-Log "  - Que l'application Entra ID a les permissions SharePoint" "WARNING"
     exit 1
 }
 
@@ -133,7 +141,7 @@ try {
     Write-Log "✓ Liste 'Benevoles' créée" "SUCCESS"
     
     # Activer versionnage
-    Set-PnPList -Identity "Benevoles" -EnableVersioning $true -MajorVersions 10 -EnableContentApproval $true
+    Set-PnPList -Identity "Benevoles" -EnableVersioning $true -MajorVersions 10
     Write-Log "✓ Versionnage activé (10 versions majeures)" "SUCCESS"
     
     # Désactiver pièces jointes
@@ -172,7 +180,7 @@ try {
     Add-PnPField -List "Benevoles" -DisplayName "Code postal" -InternalName "NPA" -Type Text
     Add-PnPField -List "Benevoles" -DisplayName "Ville" -InternalName "Ville" -Type Text
     
-    Add-PnPField -List "Benevoles" -DisplayName "Date de naissance" -InternalName "DateNaissance" -Type DateTime -DisplayFormat DateOnly
+    Add-PnPField -List "Benevoles" -DisplayName "Date de naissance" -InternalName "DateNaissance" -Type DateTime
     
     # Langues (choix multiple)
     Add-PnPFieldFromXml -List "Benevoles" -FieldXml @"
@@ -219,7 +227,7 @@ try {
 </Field>
 "@
     
-    Add-PnPField -List "Benevoles" -DisplayName "Date d'entrée" -InternalName "DateEntree" -Type DateTime -DisplayFormat DateOnly -AddToDefaultView -Required
+    Add-PnPField -List "Benevoles" -DisplayName "Date d'entrée" -InternalName "DateEntree" -Type DateTime -AddToDefaultView -Required
     
     # Provenance
     Add-PnPFieldFromXml -List "Benevoles" -FieldXml @"
@@ -266,7 +274,7 @@ try {
     # RGPD (OBLIGATOIRE)
     Add-PnPField -List "Benevoles" -DisplayName "Consentement RGPD" -InternalName "RGPDConsentement" -Type Boolean -Required
     
-    Add-PnPField -List "Benevoles" -DisplayName "Dernière mise à jour profil" -InternalName "DateDerniereMajProfil" -Type DateTime -DisplayFormat DateTime -Required
+    Add-PnPField -List "Benevoles" -DisplayName "Dernière mise à jour profil" -InternalName "DateDerniereMajProfil" -Type DateTime -Required
     
     Write-Log "✓ 26 colonnes créées" "SUCCESS"
     
@@ -316,7 +324,7 @@ try {
     }
     
     $listeMissions = New-PnPList -Title "Missions" -Template GenericList -Url "Lists/Missions"
-    Set-PnPList -Identity "Missions" -EnableVersioning $true -EnableMinorVersions $true -MajorVersions 10 -MinorVersions 5 -EnableContentApproval $true
+    Set-PnPList -Identity "Missions" -EnableVersioning $true -MajorVersions 10
     Set-PnPList -Identity "Missions" -EnableAttachments $true
     
     Write-Log "✓ Liste 'Missions' créée" "SUCCESS"
@@ -338,8 +346,8 @@ try {
 "@
     
     Add-PnPField -List "Missions" -DisplayName "Description complète" -InternalName "DescriptionMission" -Type Note -AddToDefaultView -Required
-    Add-PnPField -List "Missions" -DisplayName "Date de début" -InternalName "DateDebut" -Type DateTime -DisplayFormat DateTime -AddToDefaultView -Required
-    Add-PnPField -List "Missions" -DisplayName "Date de fin" -InternalName "DateFin" -Type DateTime -DisplayFormat DateTime -Required
+    Add-PnPField -List "Missions" -DisplayName "Date de début" -InternalName "DateDebut" -Type DateTime -AddToDefaultView -Required
+    Add-PnPField -List "Missions" -DisplayName "Date de fin" -InternalName "DateFin" -Type DateTime -Required
     
     Add-PnPFieldFromXml -List "Missions" -FieldXml @"
 <Field Type='Choice' DisplayName='Fréquence' Format='Dropdown' FillInChoice='FALSE' Name='Frequence'>
@@ -451,11 +459,11 @@ try {
     Set-PnPField -List "Affectations" -Identity "Title" -Values @{Title="Identifiant affectation"}
     
     # Lookups vers Missions et Bénévoles
-    Add-PnPField -List "Affectations" -DisplayName "Mission" -InternalName "MissionID" -Type Lookup -Required `
-        -AddToDefaultView -LookupList "Missions" -LookupField "Title"
+    $listeMissionsId = (Get-PnPList -Identity "Missions").Id
+    Add-PnPFieldFromXml -List "Affectations" -FieldXml "<Field Type='Lookup' DisplayName='Mission' Required='TRUE' Name='MissionID' List='$listeMissionsId' ShowField='Title' />"
     
-    Add-PnPField -List "Affectations" -DisplayName "Bénévole" -InternalName "BenevoleID" -Type Lookup -Required `
-        -AddToDefaultView -LookupList "Benevoles" -LookupField "Title"
+    $listeBenevoles = (Get-PnPList -Identity "Benevoles").Id
+    Add-PnPFieldFromXml -List "Affectations" -FieldXml "<Field Type='Lookup' DisplayName='Bénévole' Required='TRUE' Name='BenevoleID' List='$listeBenevoles' ShowField='Title' />"
     
     Add-PnPFieldFromXml -List "Affectations" -FieldXml @"
 <Field Type='Choice' DisplayName='Statut affectation' Required='TRUE' Format='Dropdown' FillInChoice='FALSE' Name='StatutAffectation'>
@@ -474,8 +482,8 @@ try {
     Add-PnPField -List "Affectations" -DisplayName "Plage horaire 2" -InternalName "PlageHoraire2" -Type Text
     Add-PnPField -List "Affectations" -DisplayName "Matériel fourni" -InternalName "MaterielFourni" -Type Text
     Add-PnPField -List "Affectations" -DisplayName "Heures réalisées" -InternalName "HeuresDeclarees" -Type Number
-    Add-PnPField -List "Affectations" -DisplayName "Date de proposition" -InternalName "DateProposition" -Type DateTime -DisplayFormat DateTime -Required
-    Add-PnPField -List "Affectations" -DisplayName "Date de confirmation" -InternalName "DateConfirmation" -Type DateTime -DisplayFormat DateTime
+    Add-PnPField -List "Affectations" -DisplayName "Date de proposition" -InternalName "DateProposition" -Type DateTime -Required
+    Add-PnPField -List "Affectations" -DisplayName "Date de confirmation" -InternalName "DateConfirmation" -Type DateTime
     
     Add-PnPFieldFromXml -List "Affectations" -FieldXml @"
 <Field Type='Choice' DisplayName='Canal de notification' Format='Dropdown' FillInChoice='FALSE' Name='CanalNotification'>
@@ -536,10 +544,10 @@ try {
     Set-PnPField -List "Disponibilites" -Identity "Title" -Values @{Title="Identifiant créneau"}
     
     # Lookup vers Bénévoles
-    Add-PnPField -List "Disponibilites" -DisplayName "Bénévole" -InternalName "BenevoleDispoID" -Type Lookup -Required `
-        -AddToDefaultView -LookupList "Benevoles" -LookupField "Title"
+    $listeBenevoles = (Get-PnPList -Identity 'Benevoles').Id
+    Add-PnPFieldFromXml -List 'Disponibilites' -FieldXml "<Field Type='Lookup' DisplayName='Bénévole' Required='TRUE' Name='BenevoleDispoID' List='$listeBenevoles' ShowField='Title' />"
     
-    Add-PnPField -List "Disponibilites" -DisplayName "Jour / Date" -InternalName "JourDispo" -Type DateTime -DisplayFormat DateOnly -AddToDefaultView -Required
+    Add-PnPField -List "Disponibilites" -DisplayName "Jour / Date" -InternalName "JourDispo" -Type DateTime -AddToDefaultView -Required
     
     Add-PnPFieldFromXml -List "Disponibilites" -FieldXml @"
 <Field Type='Choice' DisplayName='Type de disponibilité' Required='TRUE' Format='Dropdown' FillInChoice='FALSE' Name='TypeDisponibilite'>
@@ -580,9 +588,9 @@ try {
 </Field>
 "@
     
-    Add-PnPField -List "Disponibilites" -DisplayName "Fin de récurrence" -InternalName "DateFinRecurrence" -Type DateTime -DisplayFormat DateOnly
+    Add-PnPField -List "Disponibilites" -DisplayName "Fin de récurrence" -InternalName "DateFinRecurrence" -Type DateTime
     Add-PnPField -List "Disponibilites" -DisplayName "Commentaires" -InternalName "CommentairesDispo" -Type Note
-    Add-PnPField -List "Disponibilites" -DisplayName "Dernière modification" -InternalName "DerniereModifDispo" -Type DateTime -DisplayFormat DateTime -Required
+    Add-PnPField -List "Disponibilites" -DisplayName "Dernière modification" -InternalName "DerniereModifDispo" -Type DateTime -Required
     Add-PnPField -List "Disponibilites" -DisplayName "Confirmé" -InternalName "DispoConfirme" -Type Boolean -Required
     
     Write-Log "✓ 12 colonnes créées" "SUCCESS"
@@ -618,13 +626,13 @@ try {
     }
     
     $bibDocuments = New-PnPList -Title "DocumentsBenevoles" -Template DocumentLibrary -Url "DocumentsBenevoles"
-    Set-PnPList -Identity "DocumentsBenevoles" -EnableVersioning $true -EnableMinorVersions $true -MajorVersions 10 -MinorVersions 5 -EnableContentApproval $true
+    Set-PnPList -Identity "DocumentsBenevoles" -EnableVersioning $true -EnableMinorVersions $true -MajorVersions 10 -MinorVersions 5
     
     Write-Log "✓ Bibliothèque 'DocumentsBenevoles' créée" "SUCCESS"
     
     # Lookup vers Bénévoles
-    Add-PnPField -List "DocumentsBenevoles" -DisplayName "Bénévole" -InternalName "BenevoleDocID" -Type Lookup -Required `
-        -AddToDefaultView -LookupList "Benevoles" -LookupField "Title"
+    $listeBenevoles = (Get-PnPList -Identity 'Benevoles').Id
+    Add-PnPFieldFromXml -List 'DocumentsBenevoles' -FieldXml "<Field Type='Lookup' DisplayName='Bénévole' Required='TRUE' Name='BenevoleDocID' List='$listeBenevoles' ShowField='Title' />"
     
     Add-PnPFieldFromXml -List "DocumentsBenevoles" -FieldXml @"
 <Field Type='Choice' DisplayName='Type de document' Required='TRUE' Format='Dropdown' FillInChoice='FALSE' Name='TypeDocument'>
@@ -640,7 +648,7 @@ try {
 </Field>
 "@
     
-    Add-PnPField -List "DocumentsBenevoles" -DisplayName "Date d'expiration" -InternalName "DateExpirationDoc" -Type DateTime -DisplayFormat DateOnly
+    Add-PnPField -List "DocumentsBenevoles" -DisplayName "Date d'expiration" -InternalName "DateExpirationDoc" -Type DateTime
     Add-PnPField -List "DocumentsBenevoles" -DisplayName "Commentaires" -InternalName "CommentairesDoc" -Type Note
     
     Add-PnPFieldFromXml -List "DocumentsBenevoles" -FieldXml @"
@@ -654,13 +662,13 @@ try {
 </Field>
 "@
     
-    Add-PnPField -List "DocumentsBenevoles" -DisplayName "Date d'ajout" -InternalName "DateUploadDoc" -Type DateTime -DisplayFormat DateTime -Required
+    Add-PnPField -List "DocumentsBenevoles" -DisplayName "Date d'ajout" -InternalName "DateUploadDoc" -Type DateTime -Required
     Add-PnPField -List "DocumentsBenevoles" -DisplayName "Document valide" -InternalName "DocumentValide" -Type Boolean -Required
     
     Write-Log "✓ 7 colonnes de métadonnées créées" "SUCCESS"
     
     # Vues
-    Add-PnPView -List "DocumentsBenevoles" -Title "Documents actifs" -Fields @("Name", "BenevoleDocID", "TypeDocument", "DateExpirationDoc") -SetAsDefault
+    Add-PnPView -List "DocumentsBenevoles" -Title "Documents actifs" -Fields @("FileLeafRef", "BenevoleDocID", "TypeDocument", "DateExpirationDoc") -SetAsDefault
     
     # Indexer
     Set-PnPField -List "DocumentsBenevoles" -Identity "BenevoleDocID" -Values @{Indexed=$true}
@@ -692,8 +700,10 @@ try {
     $listeBeneficiaires = New-PnPList -Title "Beneficiaires" -Template GenericList -Url "Lists/Beneficiaires"
     Write-Log "✓ Liste 'Beneficiaires' créée" "SUCCESS"
     
-    Set-PnPList -Identity "Beneficiaires" -EnableVersioning $true -MajorVersions 10 -EnableContentApproval $true
+    Set-PnPList -Identity "Beneficiaires" -EnableVersioning $true -MajorVersions 10
     Set-PnPList -Identity "Beneficiaires" -EnableAttachments $false
+    
+    Write-Log "✓ Versionnage activé (10 versions majeures)" "SUCCESS"
     
     Write-Log "Ajout des colonnes..." "INFO"
     
@@ -720,14 +730,14 @@ try {
     Add-PnPField -List "Beneficiaires" -DisplayName "Adresse ligne 2" -InternalName "Adresse2Bnf" -Type Text
     Add-PnPField -List "Beneficiaires" -DisplayName "Code postal" -InternalName "NPABnf" -Type Text -Required
     Add-PnPField -List "Beneficiaires" -DisplayName "Ville" -InternalName "VilleBnf" -Type Text -AddToDefaultView -Required
-    Add-PnPField -List "Beneficiaires" -DisplayName "Date de naissance" -InternalName "DateNaissanceBnf" -Type DateTime -DisplayFormat DateOnly
+    Add-PnPField -List "Beneficiaires" -DisplayName "Date de naissance" -InternalName "DateNaissanceBnf" -Type DateTime
     
     Add-PnPField -List "Beneficiaires" -DisplayName "Besoins identifiés" -InternalName "Besoins" -Type Note -AddToDefaultView -Required
     Add-PnPField -List "Beneficiaires" -DisplayName "Référent externe" -InternalName "Referent" -Type Note
     Add-PnPField -List "Beneficiaires" -DisplayName "Horaires de visite" -InternalName "Horaires" -Type Text
     
-    Add-PnPField -List "Beneficiaires" -DisplayName "Date de début" -InternalName "DateDebutBnf" -Type DateTime -DisplayFormat DateOnly -AddToDefaultView -Required
-    Add-PnPField -List "Beneficiaires" -DisplayName "Date de fin" -InternalName "DateFinBnf" -Type DateTime -DisplayFormat DateOnly
+    Add-PnPField -List "Beneficiaires" -DisplayName "Date de début" -InternalName "DateDebutBnf" -Type DateTime -AddToDefaultView -Required
+    Add-PnPField -List "Beneficiaires" -DisplayName "Date de fin" -InternalName "DateFinBnf" -Type DateTime
     
     Add-PnPFieldFromXml -List "Beneficiaires" -FieldXml @"
 <Field Type='Choice' DisplayName='Statut' Required='TRUE' Format='Dropdown' Name='StatutBnf'>
@@ -785,14 +795,14 @@ try {
     Set-PnPField -List "Prestations" -Identity "Title" -Values @{Title="Identifiant prestation"; Required=$true}
     
     # Lookups
-    Add-PnPField -List "Prestations" -DisplayName "Bénéficiaire" -InternalName "BeneficiaireID" -Type Lookup -AddToDefaultView -Required `
-        -AddToDefaultView -LookupListTitle "Beneficiaires" -LookupFieldName "Title"
+    $listeBeneficiaires = (Get-PnPList -Identity 'Beneficiaires').Id
+    Add-PnPFieldFromXml -List 'Prestations' -FieldXml "<Field Type='Lookup' DisplayName='Bénéficiaire' Required='TRUE' Name='BeneficiaireID' List='$listeBeneficiaires' ShowField='Title' />"
     
-    Add-PnPField -List "Prestations" -DisplayName "Mission" -InternalName "MissionIDPrestation" -Type Lookup -AddToDefaultView -Required `
-        -LookupListTitle "Missions" -LookupFieldName "Title"
+    $listeMissionsId = (Get-PnPList -Identity 'Missions').Id
+    Add-PnPFieldFromXml -List 'Prestations' -FieldXml "<Field Type='Lookup' DisplayName='Mission' Required='TRUE' Name='MissionIDPrestation' List='$listeMissionsId' ShowField='Title' />"
     
-    Add-PnPField -List "Prestations" -DisplayName "Date de début" -InternalName "DateDebutPrestation" -Type DateTime -DisplayFormat DateOnly -AddToDefaultView -Required
-    Add-PnPField -List "Prestations" -DisplayName "Date de fin" -InternalName "DateFinPrestation" -Type DateTime -DisplayFormat DateOnly
+    Add-PnPField -List "Prestations" -DisplayName "Date de début" -InternalName "DateDebutPrestation" -Type DateTime -AddToDefaultView -Required
+    Add-PnPField -List "Prestations" -DisplayName "Date de fin" -InternalName "DateFinPrestation" -Type DateTime
     
     Add-PnPFieldFromXml -List "Prestations" -FieldXml @"
 <Field Type='Choice' DisplayName='Fréquence' Format='Dropdown' Name='FrequencePrestation'>
@@ -893,3 +903,5 @@ Write-Log "Log complet: $LogFile" "INFO"
 
 Disconnect-PnPOnline
 Write-Log "Déconnexion SharePoint" "INFO"
+
+

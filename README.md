@@ -53,15 +53,34 @@ projet-low-code-benevoles/
 
 ### Prérequis
 
-- [ ] Tenant Microsoft 365 actif
-- [ ] Licences Power Apps (per-app ou per-user)
-- [ ] Accès administrateur SharePoint Online
-- [ ] Power Automate inclus dans licence M365
-- [ ] Microsoft Access (pour analyse base existante)
+- [x] Tenant Microsoft 365 actif
+- [x] Licences Power Apps (per-app ou per-user)
+- [x] Accès administrateur SharePoint Online
+- [x] Power Automate inclus dans licence M365
+- [x] Microsoft Access (pour analyse base existante)
+- [x] PowerShell 7.5+ avec module PnP.PowerShell 3.1+
 
 ### Étapes de mise en œuvre
 
-#### Phase 1: Préparation (Semaine 1-2)
+#### ✅ Phase 1: Infrastructure SharePoint (TERMINÉE - 7 déc 2025)
+
+1. **✅ Site SharePoint créé**
+   - URL: https://serrentino.sharepoint.com/sites/GestionBenevoles
+   - 7 listes créées (111 colonnes, 16 vues)
+
+2. **✅ Application Entra ID configurée**
+   - ID: 13c089c9-8dc9-43fb-8676-039c61c0dfac
+   - Permissions SharePoint accordées
+
+3. **✅ Scripts corrigés pour PnP.PowerShell 3.x**
+   - Adapté aux nouvelles API
+   - Lookups en syntaxe XML
+
+📄 **Voir:** `PROGRESSION-MIGRATION.md` pour détails complets
+
+---
+
+#### ⏳ Phase 2: Migration données (À FAIRE - Prochaine étape)
 
 1. **Analyser la base Access existante**
    ```powershell
@@ -78,25 +97,31 @@ projet-low-code-benevoles/
    - Administrateurs Bénévoles
    - Coordinateurs Bénévoles
 
-#### Phase 2: Création structure SharePoint (Semaine 3)
+#### ⏳ Phase 2: Migration données (À FAIRE - Prochaine étape)
 
-4. **Créer le site SharePoint**
-   - Nom: "Gestion Bénévoles SAS"
-   - Template: Site d'équipe
-   - URL: https://[tenant].sharepoint.com/sites/GestionBenevoles
-
-5. **Créer les listes SharePoint automatiquement** ✅
+4. **Exporter données Access** ⏳
    ```powershell
-   cd "D:\_Projets\bd_SAS-Benevolat\scripts"
-   .\01-Creation-Listes-SharePoint.ps1 -SiteUrl "https://[tenant].sharepoint.com/sites/GestionBenevoles"
+   cd scripts
+   .\02-Export-Access-CSV.ps1
    ```
-   - ✅ Crée automatiquement 7 listes (Bénévoles, Missions, Affectations, Disponibilités, Bénéficiaires, Prestations, Documents)
-   - ✅ Configure colonnes avec types, validations, vues
-   - ✅ Durée: 4-6 minutes
+   - ✅ Script prêt à l'emploi
+   - Durée: 2-3 minutes
 
-#### Phase 3: Import données (Semaine 4)
+5. **Importer dans SharePoint** ⏳
+   ```powershell
+   .\03-Import-SharePoint.ps1 -SiteUrl "https://serrentino.sharepoint.com/sites/GestionBenevoles" -CSVFolder ".\exports"
+   ```
+   - Durée: 5-10 minutes
 
-6. **Exporter données Access** ✅
+6. **Vérifier la migration** ⏳
+   ```powershell
+   .\04-Verification-Migration.ps1 -SiteUrl "https://serrentino.sharepoint.com/sites/GestionBenevoles"
+   ```
+   - Génère rapport HTML
+
+---
+
+#### Phase 3: Application Power Apps (Semaine 5-8)
    ```powershell
    .\02-Export-Access-CSV.ps1
    ```
