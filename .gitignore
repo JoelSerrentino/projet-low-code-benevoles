@@ -1,0 +1,36 @@
+# Base de données Access
+*.accdb
+*.laccdb
+*.mdb
+*.ldb
+*BACKUP*.accdb
+
+# Exports CSV (données sensibles)
+exports/
+*.csv
+
+# Logs
+*.log
+
+# Fichiers temporaires PowerShell
+*.tmp
+*.temp
+
+# Fichiers Windows
+Thumbs.db
+Desktop.ini
+
+# VS Code
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/extensions.json
+
+# Credentials et secrets
+*credentials*
+*secrets*
+*.cred
+
+# Fichiers de test
+test/
+temp/
