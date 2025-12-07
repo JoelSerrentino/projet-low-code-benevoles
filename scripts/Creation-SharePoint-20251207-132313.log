@@ -1,0 +1,82 @@
+[2025-12-07 13:23:13] [INFO] ========================================
+[2025-12-07 13:23:13] [INFO] CRÉATION INFRASTRUCTURE SHAREPOINT
+[2025-12-07 13:23:13] [INFO] ========================================
+[2025-12-07 13:23:13] [INFO] Site cible: https://serrentino.sharepoint.com/sites/GestionBenevoles
+[2025-12-07 13:23:13] [INFO] Connexion à SharePoint...
+[2025-12-07 13:23:13] [INFO] Une fenêtre de connexion va s'ouvrir dans votre navigateur...
+[2025-12-07 13:23:13] [SUCCESS] ✓ Connecté avec succès
+[2025-12-07 13:23:14] [INFO] Site: Gestion Bénévoles SASL
+[2025-12-07 13:23:14] [INFO] 
+[2025-12-07 13:23:14] [INFO] === Création Liste BÉNÉVOLES ===
+[2025-12-07 13:23:14] [WARNING] ⚠ Liste 'Benevoles' existe déjà - Suppression...
+[2025-12-07 13:23:15] [SUCCESS] ✓ Liste 'Benevoles' créée
+[2025-12-07 13:23:16] [SUCCESS] ✓ Versionnage activé (10 versions majeures)
+[2025-12-07 13:23:16] [INFO] Ajout des colonnes...
+[2025-12-07 13:23:31] [SUCCESS] ✓ 26 colonnes créées
+[2025-12-07 13:23:31] [INFO] Création des vues...
+[2025-12-07 13:23:33] [SUCCESS] ✓ 3 vues créées
+[2025-12-07 13:23:34] [SUCCESS] ✓ Liste BÉNÉVOLES complète
+[2025-12-07 13:23:34] [INFO] 
+[2025-12-07 13:23:34] [INFO] === Création Liste MISSIONS ===
+[2025-12-07 13:23:34] [WARNING] ⚠ Liste 'Missions' existe déjà - Suppression...
+[2025-12-07 13:23:36] [SUCCESS] ✓ Liste 'Missions' créée
+[2025-12-07 13:23:43] [SUCCESS] ✓ 14 colonnes créées
+[2025-12-07 13:23:45] [SUCCESS] ✓ Liste MISSIONS complète
+[2025-12-07 13:23:45] [INFO] 
+[2025-12-07 13:23:45] [INFO] === Création Liste AFFECTATIONS ===
+[2025-12-07 13:23:46] [WARNING] ⚠ Liste 'Affectations' existe déjà - Suppression...
+[2025-12-07 13:23:47] [SUCCESS] ✓ Liste 'Affectations' créée
+[2025-12-07 13:23:54] [SUCCESS] ✓ 12 colonnes créées
+[2025-12-07 13:23:57] [SUCCESS] ✓ Liste AFFECTATIONS complète
+[2025-12-07 13:23:57] [INFO] 
+[2025-12-07 13:23:57] [INFO] === Création Liste DISPONIBILITÉS ===
+[2025-12-07 13:23:57] [WARNING] ⚠ Liste 'Disponibilites' existe déjà - Suppression...
+[2025-12-07 13:23:59] [SUCCESS] ✓ Liste 'Disponibilites' créée
+[2025-12-07 13:24:06] [SUCCESS] ✓ 12 colonnes créées
+[2025-12-07 13:24:07] [SUCCESS] ✓ Liste DISPONIBILITÉS complète
+[2025-12-07 13:24:07] [INFO] 
+[2025-12-07 13:24:07] [INFO] === Création Bibliothèque DOCUMENTS BÉNÉVOLES ===
+[2025-12-07 13:24:07] [WARNING] ⚠ Bibliothèque 'DocumentsBenevoles' existe déjà - Suppression...
+[2025-12-07 13:24:09] [SUCCESS] ✓ Bibliothèque 'DocumentsBenevoles' créée
+[2025-12-07 13:24:13] [SUCCESS] ✓ 7 colonnes de métadonnées créées
+[2025-12-07 13:24:15] [SUCCESS] ✓ Bibliothèque DOCUMENTS BÉNÉVOLES complète
+[2025-12-07 13:24:15] [INFO] 
+[2025-12-07 13:24:15] [INFO] === Création Liste BÉNÉFICIAIRES ===
+[2025-12-07 13:24:16] [SUCCESS] ✓ Liste 'Beneficiaires' créée
+[2025-12-07 13:24:17] [SUCCESS] ✓ Versionnage activé (10 versions majeures)
+[2025-12-07 13:24:17] [INFO] Ajout des colonnes...
+[2025-12-07 13:24:27] [SUCCESS] ✓ 20 colonnes ajoutées
+[2025-12-07 13:24:28] [SUCCESS] ✓ 4 vues créées
+[2025-12-07 13:24:28] [INFO] 
+[2025-12-07 13:24:28] [INFO] === Création Liste PRESTATIONS ===
+[2025-12-07 13:24:29] [SUCCESS] ✓ Liste 'Prestations' créée
+[2025-12-07 13:24:30] [INFO] Ajout des colonnes...
+[2025-12-07 13:24:36] [SUCCESS] ✓ 10 colonnes ajoutées
+[2025-12-07 13:24:36] [SUCCESS] ✓ 3 vues créées
+[2025-12-07 13:24:36] [INFO] 
+[2025-12-07 13:24:36] [INFO] === Configuration des permissions ===
+[2025-12-07 13:24:36] [WARNING] ⚠ Cette étape nécessite les groupes M365 : 'Administrateurs Bénévoles', 'Coordinateurs Bénévoles', 'Bénévoles Actifs'
+[2025-12-07 13:24:36] [INFO] Si ces groupes n'existent pas encore, créez-les manuellement dans le Centre d'administration M365
+[2025-12-07 13:24:36] [INFO] → Configuration permissions à faire manuellement (voir documentation)
+[2025-12-07 13:24:36] [INFO] 
+[2025-12-07 13:24:36] [SUCCESS] ========================================
+[2025-12-07 13:24:36] [SUCCESS] CRÉATION TERMINÉE AVEC SUCCÈS !
+[2025-12-07 13:24:36] [SUCCESS] ========================================
+[2025-12-07 13:24:36] [INFO] 
+[2025-12-07 13:24:36] [INFO] Résumé des listes créées:
+[2025-12-07 13:24:36] [SUCCESS]   ✓ Benevoles (26 colonnes, 3 vues)
+[2025-12-07 13:24:36] [SUCCESS]   ✓ Missions (14 colonnes, 2 vues)
+[2025-12-07 13:24:36] [SUCCESS]   ✓ Affectations (12 colonnes, 2 vues)
+[2025-12-07 13:24:36] [SUCCESS]   ✓ Disponibilites (12 colonnes, 1 vue)
+[2025-12-07 13:24:36] [SUCCESS]   ✓ Beneficiaires (20 colonnes, 4 vues)
+[2025-12-07 13:24:36] [SUCCESS]   ✓ Prestations (10 colonnes, 3 vues)
+[2025-12-07 13:24:36] [SUCCESS]   ✓ DocumentsBenevoles (7 colonnes métadonnées, 1 vue)
+[2025-12-07 13:24:36] [INFO] 
+[2025-12-07 13:24:36] [INFO] Prochaines étapes:
+[2025-12-07 13:24:36] [INFO]   1. Vérifier les listes dans SharePoint: https://serrentino.sharepoint.com/sites/GestionBenevoles
+[2025-12-07 13:24:36] [INFO]   2. Configurer les permissions si nécessaire
+[2025-12-07 13:24:36] [INFO]   3. Exécuter le script 02-Export-Access-CSV.ps1 pour exporter les données
+[2025-12-07 13:24:36] [INFO]   4. Exécuter le script 03-Import-SharePoint.ps1 pour importer les données
+[2025-12-07 13:24:36] [INFO] 
+[2025-12-07 13:24:36] [INFO] Log complet: .\Creation-SharePoint-20251207-132313.log
+[2025-12-07 13:24:36] [INFO] Déconnexion SharePoint
