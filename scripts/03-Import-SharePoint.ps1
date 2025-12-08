@@ -66,6 +66,97 @@ function Write-Log {
     }
 }
 
+# ============================================================================================================
+# FONCTIONS DE MAPPING POUR VALEURS DE CHOIX SHAREPOINT
+# ============================================================================================================
+
+function Map-StatutBenevole {
+    param([string]$Statut)
+    
+    # SharePoint accepte: Actif, Inactif, Suspendu, En attente
+    # CSV contient: Actif, Ancien, En attente, Ponctuel
+    
+    switch ($Statut) {
+        "Ancien" { return "Inactif" }
+        "Ponctuel" { return "Actif" }
+        "Actif" { return "Actif" }
+        "En attente" { return "En attente" }
+        default { return "Actif" }
+    }
+}
+
+function Map-Civilite {
+    param([string]$Civilite)
+    
+    # SharePoint accepte: M., Mme, Autre
+    # CSV contient: Madame, Monsieur
+    
+    switch ($Civilite) {
+        "Madame" { return "Mme" }
+        "Monsieur" { return "M." }
+        default { return "Autre" }
+    }
+}
+
+function Map-TypeMission {
+    param([string]$TypeMission)
+    
+    # SharePoint accepte: Récurrente, Ponctuelle
+    # CSV contient: Recurrente, Ponctuelle
+    
+    switch ($TypeMission) {
+        "Recurrente" { return "Récurrente" }
+        "Ponctuelle" { return "Ponctuelle" }
+        default { return "Ponctuelle" }
+    }
+}
+
+function Map-StatutMission {
+    param([string]$StatutMission)
+    
+    # SharePoint accepte: Brouillon, Planifiée, En cours, Clôturée, Annulée
+    # CSV contient: Planifiee
+    
+    switch ($StatutMission) {
+        "Planifiee" { return "Planifiée" }
+        "Brouillon" { return "Brouillon" }
+        "En cours" { return "En cours" }
+        "Cloturee" { return "Clôturée" }
+        "Annulee" { return "Annulée" }
+        default { return "Planifiée" }
+    }
+}
+
+function Map-Priorite {
+    param([string]$Priorite)
+    
+    # SharePoint accepte: Faible, Moyenne, Haute, Critique
+    # Pas de changement nécessaire
+    
+    switch ($Priorite) {
+        "Faible" { return "Faible" }
+        "Moyenne" { return "Moyenne" }
+        "Haute" { return "Haute" }
+        "Critique" { return "Critique" }
+        default { return "Moyenne" }
+    }
+}
+
+function Parse-DateSafe {
+    param([string]$DateString)
+    
+    if ([string]::IsNullOrWhiteSpace($DateString)) {
+        return $null
+    }
+    
+    try {
+        return [DateTime]::Parse($DateString)
+    }
+    catch {
+        return $null
+    }
+}
+
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host "IMPORT CSV → SHAREPOINT" -ForegroundColor Cyan
 Write-Host "========================================" -ForegroundColor Cyan
@@ -82,9 +173,19 @@ Write-Log "========== DÉBUT DE L'IMPORT =========="
 # ============================================================================================================
 
 try {
-    Write-Log "Connexion à SharePoint..."
-    Connect-PnPOnline -Url $SiteUrl -Interactive
-    Write-Log "✓ Connexion réussie" -Level "SUCCESS"
+    Write-Log "Vérification de la connexion à SharePoint..."
+    
+    # Vérifier si déjà connecté
+    $existingConnection = Get-PnPConnection -ErrorAction SilentlyContinue
+    
+    if ($existingConnection -and $existingConnection.Url -eq $SiteUrl) {
+        Write-Log "✓ Connexion existante détectée" -Level "SUCCESS"
+    }
+    else {
+        Write-Log "Connexion à SharePoint avec ClientId..."
+        Connect-PnPOnline -Url $SiteUrl -Interactive -ClientId "13c089c9-8dc9-43fb-8676-039c61c0dfac"
+        Write-Log "✓ Connexion réussie" -Level "SUCCESS"
+    }
 }
 catch {
     Write-Log "✗ Erreur de connexion: $_" -Level "ERROR"
@@ -187,38 +288,30 @@ for ($i = 0; $i -lt $totalBenevoles; $i += $BatchSize) {
                 NumeroBenevole = $row.NumeroBenevole
                 Prenom = $row.Prenom
                 Nom = $row.Nom
-                Civilite = $row.Civilite
-                Email = $row.Email
+                Civilite = Map-Civilite $row.Civilite
+                EmailBenevole = $row.Email
                 Telephone = $row.Telephone
                 TelephoneMobile = $row.TelephoneMobile
                 Adresse1 = $row.Adresse1
                 Adresse2 = $row.Adresse2
                 NPA = $row.NPA
                 Ville = $row.Ville
-                Statut = if ([string]::IsNullOrWhiteSpace($row.Statut)) { "Actif" } else { $row.Statut }
+                Statut = Map-StatutBenevole $row.Statut
                 RGPDConsentement = $row.RGPDConsentement
                 NotesGenerales = $row.NotesGenerales
                 NotesInternes = $row.NotesInternes
             }
             
             # Ajouter DateNaissance si présente
-            if (-not [string]::IsNullOrWhiteSpace($row.DateNaissance)) {
-                try {
-                    $itemData.DateNaissance = [DateTime]::Parse($row.DateNaissance)
-                }
-                catch {
-                    Write-Log "  ⚠ DateNaissance invalide pour $($row.NomComplet)" -Level "WARNING"
-                }
+            $dateNaissance = Parse-DateSafe $row.DateNaissance
+            if ($dateNaissance) {
+                $itemData.DateNaissance = $dateNaissance
             }
             
             # Ajouter DateEntree
-            if (-not [string]::IsNullOrWhiteSpace($row.DateEntree)) {
-                try {
-                    $itemData.DateEntree = [DateTime]::Parse($row.DateEntree)
-                }
-                catch {
-                    $itemData.DateEntree = Get-Date
-                }
+            $dateEntree = Parse-DateSafe $row.DateEntree
+            if ($dateEntree) {
+                $itemData.DateEntree = $dateEntree
             }
             else {
                 $itemData.DateEntree = Get-Date
@@ -237,7 +330,7 @@ for ($i = 0; $i -lt $totalBenevoles; $i += $BatchSize) {
                 
                 foreach ($comp in $competencesArray) {
                     $match = $choixDisponibles | Where-Object { $_ -like "*$comp*" }
-                    if ($match) {
+                    if ($match -and $match.Count -gt 0) {
                         $competencesValides += $match[0]
                     }
                 }
@@ -250,8 +343,10 @@ for ($i = 0; $i -lt $totalBenevoles; $i += $BatchSize) {
             # Créer l'item SharePoint
             $newItem = Add-PnPListItem -List "Benevoles" -Values $itemData
             
-            # Stocker le mapping PERSONNE_ID → SharePoint ID
-            $benevoleMapping[$row.PERSONNE_ID] = $newItem.Id
+            # Stocker le mapping SourceID → SharePoint ID
+            if (-not [string]::IsNullOrWhiteSpace($row.SourceID)) {
+                $benevoleMapping[$row.SourceID] = $newItem.Id
+            }
             
             $importedBenevoles++
         }
@@ -295,26 +390,22 @@ for ($i = 0; $i -lt $totalMissions; $i += $BatchSize) {
             $itemData = @{
                 Title = $row.Titre
                 CodeMission = $row.CodeMission
-                TypeMission = $row.TypeMission
-                Description = $row.Description
-                Lieu = $row.Lieu
-                StatutMission = if ([string]::IsNullOrWhiteSpace($row.StatutMission)) { "Planifiée" } else { $row.StatutMission }
-                Priorite = if ([string]::IsNullOrWhiteSpace($row.Priorite)) { "Moyenne" } else { $row.Priorite }
+                TypeMission = Map-TypeMission $row.TypeMission
+                DescriptionMission = $row.Description
+                LieuMission = $row.Lieu
+                StatutMission = Map-StatutMission $row.StatutMission
+                Priorite = Map-Priorite $row.Priorite
             }
             
             # Ajouter dates si présentes
-            if (-not [string]::IsNullOrWhiteSpace($row.DateDebut)) {
-                try {
-                    $itemData.DateDebut = [DateTime]::Parse($row.DateDebut)
-                }
-                catch {}
+            $dateDebut = Parse-DateSafe $row.DateDebut
+            if ($dateDebut) {
+                $itemData.DateDebut = $dateDebut
             }
             
-            if (-not [string]::IsNullOrWhiteSpace($row.DateFin)) {
-                try {
-                    $itemData.DateFin = [DateTime]::Parse($row.DateFin)
-                }
-                catch {}
+            $dateFin = Parse-DateSafe $row.DateFin
+            if ($dateFin) {
+                $itemData.DateFin = $dateFin
             }
             
             # Autres champs
@@ -328,8 +419,10 @@ for ($i = 0; $i -lt $totalMissions; $i += $BatchSize) {
             
             $newItem = Add-PnPListItem -List "Missions" -Values $itemData
             
-            # Stocker le mapping CodeSource → SharePoint ID
-            $missionMapping[$row.CodeSource] = $newItem.Id
+            # Stocker le mapping SourceCode → SharePoint ID
+            if (-not [string]::IsNullOrWhiteSpace($row.SourceCode)) {
+                $missionMapping[$row.SourceCode] = $newItem.Id
+            }
             
             $importedMissions++
         }
@@ -385,8 +478,8 @@ for ($i = 0; $i -lt $totalAffectations; $i += $BatchSize) {
             
             $itemData = @{
                 Title = "Affectation"
-                MissionIDId = $missionId
-                BenevoleIDId = $benevoleId
+                MissionID = $missionId
+                BenevoleID = $benevoleId
                 StatutAffectation = $row.StatutAffectation
             }
             
@@ -459,9 +552,14 @@ foreach ($row in $csvBeneficiaires) {
             NPABnf = $row.NPA
             VilleBnf = $row.VILLE
             Besoins = $row.Besoins
-            DateDebutBnf = [DateTime]::Parse($row.DateDebut)
             StatutBnf = $row.Statut
             RGPDConsentementBnf = if ($row.RGPDConsentement -eq "Oui") { $true } else { $false }
+        }
+        
+        # DateDebutBnf avec Parse-DateSafe
+        $dateDebut = Parse-DateSafe $row.DateDebut
+        if ($dateDebut) {
+            $itemData.DateDebutBnf = $dateDebut
         }
         
         # Champs optionnels
@@ -471,8 +569,10 @@ foreach ($row in $csvBeneficiaires) {
         if (-not [string]::IsNullOrWhiteSpace($row.Referent)) { $itemData.Referent = $row.Referent }
         if (-not [string]::IsNullOrWhiteSpace($row.Horaires)) { $itemData.Horaires = $row.Horaires }
         if (-not [string]::IsNullOrWhiteSpace($row.Historique)) { $itemData.HistoriqueBnf = $row.Historique }
-        if (-not [string]::IsNullOrWhiteSpace($row.RGPDDateConsentement)) {
-            $itemData.RGPDDateConsentementBnf = [DateTime]::Parse($row.RGPDDateConsentement)
+        
+        $dateConsentement = Parse-DateSafe $row.RGPDDateConsentement
+        if ($dateConsentement) {
+            $itemData.RGPDDateConsentementBnf = $dateConsentement
         }
         
         Add-PnPListItem -List "Beneficiaires" -Values $itemData | Out-Null
@@ -520,18 +620,30 @@ Write-Host "  Nombre de prestations à importer: $totalPrestations" -ForegroundC
 
 foreach ($row in $csvPrestations) {
     try {
-        # Résoudre lookup Bénéficiaire
-        $beneficiaireId = $beneficiairesMapping[[int]$row.BENEFICIAIRE_ID]
-        if (-not $beneficiaireId) {
-            Write-Log "  ⚠ Bénéficiaire non trouvé pour ID=$($row.BENEFICIAIRE_ID)" -Level "WARNING"
+        # Résoudre lookup Bénéficiaire via NumeroBeneficiaire
+        if ([string]::IsNullOrWhiteSpace($row.BeneficiaireSourceID)) {
+            Write-Log "  ⚠ BeneficiaireSourceID vide" -Level "WARNING"
             $failedPrestations++
             continue
         }
         
-        # Résoudre lookup Mission (via missionsMapping déjà créé)
-        $missionId = $missionsMapping[[int]$row.ACTIVITE_ID]
+        $beneficiaireId = $beneficiairesMapping[[int]$row.BeneficiaireSourceID]
+        if (-not $beneficiaireId) {
+            Write-Log "  ⚠ Bénéficiaire non trouvé pour ID=$($row.BeneficiaireSourceID)" -Level "WARNING"
+            $failedPrestations++
+            continue
+        }
+        
+        # Résoudre lookup Mission via SourceCode
+        if ([string]::IsNullOrWhiteSpace($row.MissionCodeSource)) {
+            Write-Log "  ⚠ MissionCodeSource vide" -Level "WARNING"
+            $failedPrestations++
+            continue
+        }
+        
+        $missionId = $missionMapping[$row.MissionCodeSource]
         if (-not $missionId) {
-            Write-Log "  ⚠ Mission non trouvée pour ACTIVITE_ID=$($row.ACTIVITE_ID)" -Level "WARNING"
+            Write-Log "  ⚠ Mission non trouvée pour SourceCode=$($row.MissionCodeSource)" -Level "WARNING"
             $failedPrestations++
             continue
         }
@@ -540,10 +652,19 @@ foreach ($row in $csvPrestations) {
             Title = "Prestation-$beneficiaireId-$missionId"
             BeneficiaireID = $beneficiaireId
             MissionIDPrestation = $missionId
-            DateDebutPrestation = [DateTime]::Parse($row.DateDebut)
             FrequencePrestation = $row.Frequence
             StatutPrestation = $row.StatutPrestation
-            DerniereVisite = [DateTime]::Parse($row.DerniereVisite)
+        }
+        
+        # Dates avec Parse-DateSafe
+        $dateDebut = Parse-DateSafe $row.DateDebut
+        if ($dateDebut) {
+            $itemData.DateDebutPrestation = $dateDebut
+        }
+        
+        $derniereVisite = Parse-DateSafe $row.DerniereVisite
+        if ($derniereVisite) {
+            $itemData.DerniereVisite = $derniereVisite
         }
         
         Add-PnPListItem -List "Prestations" -Values $itemData | Out-Null
