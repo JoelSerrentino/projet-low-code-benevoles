@@ -1,53 +1,710 @@
-# Workflows Power Automate - Gestion Bénévoles
+# Guide Power Automate - Workflows Gestion Bénévoles
 
-**Date:** 18 novembre 2025  
-**Environnement:** Microsoft 365 + SharePoint Online
-
----
-
-## Vue d'ensemble des flux
-
-### Flux automatisés
-1. **Onboarding nouveau bénévole** (déclencheur: création Bénévoles)
-2. **Notification affectation mission** (déclencheur: création Affectations)
-3. **Rappel mise à jour disponibilités** (planifié hebdomadaire)
-4. **Alerte missions urgentes non pourvues** (planifié quotidien)
-5. **Alerte expiration documents** (planifié hebdomadaire)
-6. **Confirmation affectation bénévole** (déclencheur: email de réponse)
-7. **Workflow approbation clôture mission** (déclencheur: changement statut)
+**Version:** 2.0  
+**Date:** 8 décembre 2025  
+**Auteur:** Documentation du projet SAS Bénévolat
 
 ---
 
-## 📋 Flux 1: Onboarding Nouveau Bénévole
+## Table des Matières
 
-### Informations générales
-- **Nom:** `Onboarding - Nouveau bénévole`
-- **Déclencheur:** Quand un élément est créé (SharePoint - Benevoles)
-- **Type:** Automatisé
-- **Propriétaire:** Administrateurs
+1. [Vue d'ensemble](#vue-densemble)
+2. [Prérequis et Configuration](#prérequis-et-configuration)
+3. [Flux Prioritaires](#flux-prioritaires)
+4. [Configuration Détaillée des Workflows](#configuration-détaillée-des-workflows)
+5. [Templates d'Emails](#templates-demails)
+6. [Tests et Déploiement](#tests-et-déploiement)
+7. [Monitoring et Maintenance](#monitoring-et-maintenance)
 
-### Étapes du flux
+---
 
-```mermaid
-graph TD
-    A[Nouvel élément créé dans Benevoles] --> B{Statut = Actif ?}
-    B -->|Oui| C[Envoyer email de bienvenue]
-    B -->|Non| Z[Fin]
-    C --> D[Créer tâche Planner pour coordinateur]
-    D --> E[Ajouter au groupe Teams Bénévoles]
-    E --> F[Envoyer checklist onboarding]
-    F --> G[Planifier rappel J+7]
-    G --> H[Créer dossier OneDrive personnel]
-    H --> I[Logger dans liste Historique]
-    I --> Z[Fin]
+## Vue d'ensemble
+
+### Objectif des Workflows
+
+Automatiser les processus clés de la gestion des bénévoles pour :
+- Réduire la charge administrative des coordinateurs
+- Améliorer la communication avec les bénévoles
+- Garantir le suivi des affectations et prestations
+- Alerter sur les situations nécessitant une attention
+
+### Architecture des Flux
+
+```
+SharePoint Lists ──┐
+Power Apps ────────┼──> Power Automate ──┬──> Emails (Outlook)
+Calendrier ────────┘                      ├──> Teams
+                                          ├──> Planner
+                                          └──> Notifications Push
 ```
 
-### Détail des actions
+### Liste des Workflows Essentiels
 
-**1. Condition: Vérifier statut**
+| # | Nom du Flux | Type | Déclencheur | Priorité |
+|---|-------------|------|-------------|----------|
+| 1 | Bienvenue nouveau bénévole | Automatisé | Création Benevoles | Haute |
+| 2 | Notification d'affectation | Automatisé | Création Affectations | Haute |
+| 3 | Rappel confirmation affectation | Planifié | Quotidien (8h00) | Moyenne |
+| 4 | Rappel mission à venir | Planifié | Quotidien (18h00) | Haute |
+| 5 | Alerte prestation non visitée | Planifié | Hebdomadaire (Lundi 9h) | Haute |
+| 6 | Rapport hebdomadaire coordinateurs | Planifié | Vendredi 17h | Moyenne |
+| 7 | Validation clôture mission | Approbation | Changement StatutMission | Moyenne |
+
+---
+
+## Prérequis et Configuration
+
+### Accès Requis
+
+1. **Licence Power Automate** : Premium (pour connecteurs premium)
+2. **Permissions SharePoint** : Éditeur ou Propriétaire
+3. **Boîte email partagée** : benevoles@serrentino.ch (recommandé)
+4. **Accès Planner** : Pour créer des tâches
+
+### Configuration Initiale
+
+1. Connectez-vous à [make.powerautomate.com](https://make.powerautomate.com)
+2. Sélectionnez votre environnement
+3. Créez une **solution** : `Solution - Gestion Bénévoles`
+4. Ajoutez tous les flux dans cette solution
+
+### Variables d'Environnement
+
+Créez ces variables pour faciliter la maintenance :
+
+| Variable | Valeur | Utilisation |
+|----------|--------|-------------|
+| `var_SiteSharePoint` | https://serrentino.sharepoint.com/sites/GestionBenevoles | URL du site |
+| `var_EmailCoordinateur` | coordination@serrentino.ch | Email principal |
+| `var_EmailCC` | admin@serrentino.ch | Copie pour archivage |
+| `var_NomOrganisation` | SAS Bénévolat | Nom dans les emails |
+
+---
+
+## Flux Prioritaires
+
+### Flux 1 : Bienvenue Nouveau Bénévole
+
+**Objectif :** Envoyer un email de bienvenue automatique lors de l'inscription d'un nouveau bénévole
+
+#### Configuration du Déclencheur
+
 ```
-Condition: @equals(triggerOutputs()?['body/Statut/Value'], 'Actif')
+Déclencheur : Quand un élément est créé
+Connexion : SharePoint
+Site : [var_SiteSharePoint]
+Liste : Benevoles
 ```
+
+#### Étapes du Flux
+
+**Étape 1 : Condition - Vérifier si Actif**
+```
+Condition
+├─ Si : Statut est égal à "Actif"
+└─ Expression : @equals(triggerOutputs()?['body/Statut/Value'], 'Actif')
+```
+
+**Étape 2 : Envoyer Email de Bienvenue**
+```
+Action : Envoyer un e-mail (V2)
+À : @{triggerOutputs()?['body/EmailBenevole']}
+Objet : Bienvenue au SAS Bénévolat !
+Corps : [Voir Template Email #1]
+Importance : Normale
+```
+
+**Étape 3 : Créer Tâche Planner pour Coordinateur**
+```
+Action : Créer une tâche
+Nom du groupe : Coordination Bénévoles
+Nom du plan : Onboarding
+Titre : Accueillir @{triggerOutputs()?['body/Prenom']} @{triggerOutputs()?['body/Nom']}
+Description : 
+  - Appeler le bénévole
+  - Planifier entretien d'intégration
+  - Assigner première mission
+Date d'échéance : @{addDays(utcNow(), 7)}
+Assigné à : coordination@serrentino.ch
+```
+
+**Étape 4 : Notifier Teams**
+```
+Action : Publier un message (V3)
+Équipe : Gestion Bénévoles
+Canal : Général
+Message : 
+  🎉 **Nouveau bénévole inscrit !**
+  Nom : @{triggerOutputs()?['body/NomComplet']}
+  Compétences : @{triggerOutputs()?['body/Competences']}
+  Statut : @{triggerOutputs()?['body/Statut/Value']}
+  
+  👉 [Voir la fiche](lien vers Power Apps)
+```
+
+---
+
+### Flux 2 : Notification d'Affectation
+
+**Objectif :** Informer un bénévole qu'il a été affecté à une mission
+
+#### Configuration du Déclencheur
+
+```
+Déclencheur : Quand un élément est créé
+Liste : Affectations
+```
+
+#### Étapes du Flux
+
+**Étape 1 : Obtenir le Bénévole**
+```
+Action : Obtenir un élément
+Site : [var_SiteSharePoint]
+Liste : Benevoles
+Id : @{triggerOutputs()?['body/BenevoleID/Id']}
+```
+
+**Étape 2 : Obtenir la Mission**
+```
+Action : Obtenir un élément
+Site : [var_SiteSharePoint]
+Liste : Missions
+Id : @{triggerOutputs()?['body/MissionID/Id']}
+```
+
+**Étape 3 : Condition - Vérifier Email**
+```
+Condition : Email bénévole n'est pas vide
+Expression : @not(empty(body('Obtenir_Benevole')?['EmailBenevole']))
+```
+
+**Étape 4 : Envoyer Email d'Affectation**
+```
+Action : Envoyer un e-mail (V2)
+À : @{body('Obtenir_Benevole')?['EmailBenevole']}
+CC : @{variables('var_EmailCoordinateur')}
+Objet : Nouvelle mission proposée : @{body('Obtenir_Mission')?['Title']}
+Corps : [Voir Template Email #2]
+Importance : Haute
+
+Ajouter boutons d'action :
+  [✅ Accepter]  [❌ Refuser]  [📅 Proposer autre date]
+```
+
+**Étape 5 : Mettre à Jour Date Notification**
+```
+Action : Mettre à jour un élément
+Liste : Affectations
+Id : @{triggerOutputs()?['body/ID']}
+Champs :
+  DateNotification : @{utcNow()}
+```
+
+---
+
+### Flux 3 : Rappel Confirmation Affectation
+
+**Objectif :** Rappeler aux bénévoles de confirmer leur participation (48h avant)
+
+#### Configuration du Déclencheur
+
+```
+Déclencheur : Récurrence
+Intervalle : 1
+Fréquence : Jour
+Heure : 08:00
+Fuseau horaire : (UTC+01:00) Bruxelles, Copenhague, Madrid, Paris
+```
+
+#### Étapes du Flux
+
+**Étape 1 : Obtenir Affectations en Attente**
+```
+Action : Obtenir des éléments
+Liste : Affectations
+Filtre OData : 
+  StatutAffectation/Value eq 'En attente' and 
+  DateProposition le '@{addDays(utcNow(), 2)}'
+Limite : 100
+```
+
+**Étape 2 : Appliquer à Chacun (Boucle)**
+```
+Action : Appliquer à chacun
+Sélectionner une sortie : @{body('Obtenir_Affectations')?['value']}
+
+Pour chaque affectation :
+
+  ├─ Obtenir Bénévole
+  ├─ Obtenir Mission
+  ├─ Envoyer Email Rappel
+  │   Objet : Rappel : Merci de confirmer votre participation
+  │   Corps : [Template #3]
+  └─ Créer notification Push (si app mobile)
+```
+
+---
+
+### Flux 4 : Rappel Mission à Venir
+
+**Objectif :** Rappeler aux bénévoles affectés qu'une mission commence demain
+
+#### Configuration du Déclencheur
+
+```
+Déclencheur : Récurrence
+Fréquence : Jour
+Heure : 18:00
+```
+
+#### Étapes Principales
+
+**Filtre Affectations :**
+```
+StatutAffectation/Value eq 'Confirmée' and
+MissionID/DateDebut eq '@{formatDateTime(addDays(utcNow(), 1), 'yyyy-MM-dd')}'
+```
+
+**Email :**
+```
+Objet : Rappel : Votre mission de demain
+Corps :
+  Bonjour @{Prenom},
+  
+  Nous vous rappelons que vous êtes attendu(e) demain pour :
+  📋 Mission : @{Mission.Title}
+  📍 Lieu : @{Mission.LieuMission}
+  🕐 Horaire : @{Affectation.PlageHoraire1}
+  
+  Informations complémentaires :
+  @{Mission.DescriptionMission}
+  
+  En cas d'empêchement, merci de nous prévenir au plus vite.
+  
+  À demain !
+```
+
+---
+
+### Flux 5 : Alerte Prestation Non Visitée
+
+**Objectif :** Alerter les coordinateurs des bénéficiaires non visités depuis 30+ jours
+
+#### Configuration du Déclencheur
+
+```
+Déclencheur : Récurrence
+Fréquence : Semaine
+Jour : Lundi
+Heure : 09:00
+```
+
+#### Étapes du Flux
+
+**Étape 1 : Date Limite (30 jours)**
+```
+Action : Initialiser la variable
+Nom : varDateLimite
+Type : String
+Valeur : @{formatDateTime(addDays(utcNow(), -30), 'yyyy-MM-dd')}
+```
+
+**Étape 2 : Obtenir Prestations à Risque**
+```
+Action : Obtenir des éléments
+Liste : Prestations
+Filtre OData :
+  StatutPrestation eq 'En_cours' and
+  DerniereVisite le '@{variables('varDateLimite')}'
+Limite : 500
+```
+
+**Étape 3 : Condition - Des Alertes ?**
+```
+Condition : Nombre de prestations > 0
+Expression : @greater(length(body('Obtenir_Prestations')?['value']), 0)
+```
+
+**Étape 4 : Créer Tableau HTML**
+```
+Action : Créer un tableau HTML
+De : @{body('Obtenir_Prestations')?['value']}
+Colonnes :
+  - BeneficiaireID/NomComplet
+  - MissionIDPrestation/Title
+  - DerniereVisite
+  - Ville
+```
+
+**Étape 5 : Envoyer Email Alerte**
+```
+À : coordination@serrentino.ch
+Objet : ⚠️ Alerte : @{length(body('Obtenir_Prestations')?['value'])} prestations nécessitent votre attention
+Corps :
+  Bonjour,
+  
+  Les prestations suivantes n'ont pas été visitées depuis plus de 30 jours :
+  
+  @{body('Créer_tableau_HTML')}
+  
+  Merci de planifier des visites dans les meilleurs délais.
+  
+  [🔗 Accéder au tableau de bord](lien Power Apps)
+Importance : Haute
+```
+
+---
+
+### Flux 6 : Rapport Hebdomadaire Coordinateurs
+
+**Objectif :** Synthèse hebdomadaire des activités
+
+#### Configuration du Déclencheur
+
+```
+Déclencheur : Récurrence
+Fréquence : Semaine
+Jour : Vendredi
+Heure : 17:00
+```
+
+#### Calcul des KPIs
+
+**Variables à Initialiser :**
+```
+varDateDebutSemaine : @{formatDateTime(addDays(utcNow(), -7), 'yyyy-MM-dd')}
+varNouveauxBenevoles : 0
+varNouvellesAffectations : 0
+varPrestationsActives : 0
+```
+
+**Requêtes :**
+```
+1. Nouveaux bénévoles (semaine) :
+   DateCreation ge '@{variables('varDateDebutSemaine')}'
+
+2. Nouvelles affectations :
+   DateProposition ge '@{variables('varDateDebutSemaine')}'
+
+3. Prestations actives :
+   StatutPrestation eq 'En_cours'
+```
+
+**Email Synthèse :**
+```
+Objet : 📊 Rapport hebdomadaire - Gestion Bénévoles
+Corps :
+  Bonjour,
+  
+  Voici le récapitulatif de la semaine :
+  
+  📈 BÉNÉVOLES
+  - Nouveaux inscrits : @{variables('varNouveauxBenevoles')}
+  - Total actifs : @{compteur}
+  
+  🔗 AFFECTATIONS
+  - Nouvelles cette semaine : @{variables('varNouvellesAffectations')}
+  - En attente de confirmation : @{compteur}
+  
+  🎯 PRESTATIONS
+  - Actives : @{variables('varPrestationsActives')}
+  - Alertes (>30j) : @{compteur}
+  
+  🏆 TOP MISSIONS DE LA SEMAINE
+  [Tableau des missions les plus actives]
+  
+  Excellent travail !
+```
+
+---
+
+### Flux 7 : Workflow Approbation Clôture Mission
+
+**Objectif :** Valider la clôture d'une mission avec workflow d'approbation
+
+#### Configuration du Déclencheur
+
+```
+Déclencheur : Quand un élément est modifié
+Liste : Missions
+```
+
+#### Condition de Démarrage
+
+```
+Condition :
+  StatutMission/Value est égal à "Clôturée"
+  ET
+  StatutMission/Value (précédent) n'est pas égal à "Clôturée"
+```
+
+#### Workflow d'Approbation
+
+**Étape 1 : Démarrer Approbation**
+```
+Action : Démarrer et attendre une approbation
+Type d'approbation : Tout le monde doit approuver
+Titre : Validation clôture mission : @{triggerOutputs()?['body/Title']}
+Assigné à : coordination@serrentino.ch, admin@serrentino.ch
+Détails :
+  Mission : @{Title}
+  Type : @{TypeMission}
+  Date de fin : @{DateFin}
+  Nombre de bénévoles affectés : @{compteur}
+  
+  Voulez-vous valider la clôture de cette mission ?
+```
+
+**Étape 2 : Condition - Approuvée ?**
+```
+Si APPROUVÉE :
+  ├─ Mettre à jour : Statut = "Clôturée"
+  ├─ Envoyer email de remerciement aux bénévoles affectés
+  ├─ Archiver les documents liés
+  └─ Logger dans historique
+  
+Si REJETÉE :
+  ├─ Mettre à jour : Statut = "En cours"
+  ├─ Notifier coordinateur
+  └─ Ajouter commentaire de refus
+```
+
+---
+
+## Templates d'Emails
+
+### Template #1 : Email de Bienvenue
+
+```html
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, sans-serif; }
+        .header { background-color: #0078D4; color: white; padding: 20px; }
+        .content { padding: 20px; }
+        .footer { background-color: #F3F2F1; padding: 15px; font-size: 12px; }
+        .button { background-color: #107C10; color: white; padding: 12px 24px; 
+                  text-decoration: none; border-radius: 4px; display: inline-block; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Bienvenue au SAS Bénévolat !</h1>
+    </div>
+    <div class="content">
+        <p>Bonjour <strong>@{triggerOutputs()?['body/Prenom']}</strong>,</p>
+        
+        <p>Nous sommes ravis de vous accueillir parmi nos bénévoles ! 🎉</p>
+        
+        <p>Votre inscription a bien été enregistrée avec le numéro : 
+           <strong>@{triggerOutputs()?['body/NumeroBenevole']}</strong></p>
+        
+        <h3>Prochaines étapes :</h3>
+        <ol>
+            <li>Un coordinateur vous contactera dans les 7 jours pour un entretien d'intégration</li>
+            <li>Nous vous proposerons des missions correspondant à vos compétences</li>
+            <li>Vous recevrez une invitation à notre groupe Teams</li>
+        </ol>
+        
+        <p><a href="#" class="button">Compléter mon profil</a></p>
+        
+        <p>En cas de question, n'hésitez pas à nous contacter à 
+           <a href="mailto:coordination@serrentino.ch">coordination@serrentino.ch</a></p>
+        
+        <p>À très bientôt !<br>
+        L'équipe du SAS Bénévolat</p>
+    </div>
+    <div class="footer">
+        <p>Cet email a été envoyé automatiquement. Merci de ne pas y répondre directement.</p>
+    </div>
+</body>
+</html>
+```
+
+### Template #2 : Notification d'Affectation
+
+```html
+<div class="header">
+    <h1>📋 Nouvelle Mission Proposée</h1>
+</div>
+<div class="content">
+    <p>Bonjour <strong>@{body('Obtenir_Benevole')?['Prenom']}</strong>,</p>
+    
+    <p>Nous avons une mission qui correspond à vos compétences !</p>
+    
+    <div style="background-color: #F3F2F1; padding: 15px; border-left: 4px solid #0078D4;">
+        <h3>@{body('Obtenir_Mission')?['Title']}</h3>
+        <p><strong>📍 Lieu :</strong> @{body('Obtenir_Mission')?['LieuMission']}</p>
+        <p><strong>📅 Date :</strong> @{formatDateTime(body('Obtenir_Mission')?['DateDebut'], 'dd/MM/yyyy')}</p>
+        <p><strong>🕐 Horaire :</strong> @{triggerOutputs()?['body/PlageHoraire1']}</p>
+        <p><strong>📝 Description :</strong><br>@{body('Obtenir_Mission')?['DescriptionMission']}</p>
+    </div>
+    
+    <p><strong>Pouvez-vous accepter cette mission ?</strong></p>
+    
+    <p>
+        <a href="#" class="button" style="background-color: #107C10;">✅ J'accepte</a>
+        <a href="#" class="button" style="background-color: #D83B01;">❌ Je refuse</a>
+    </p>
+    
+    <p>Merci de nous confirmer votre participation au plus vite.</p>
+</div>
+```
+
+### Template #3 : Rappel Confirmation
+
+```html
+<div class="content">
+    <p>Bonjour @{body('Obtenir_Benevole')?['Prenom']},</p>
+    
+    <p>⏰ <strong>Rappel important</strong></p>
+    
+    <p>Nous attendons toujours votre confirmation pour la mission suivante :</p>
+    
+    <div style="border: 2px solid #FFB900; padding: 15px; background-color: #FFFBF0;">
+        <p><strong>Mission :</strong> @{body('Obtenir_Mission')?['Title']}</p>
+        <p><strong>Date :</strong> @{formatDateTime(body('Obtenir_Mission')?['DateDebut'], 'dd/MM/yyyy à HH:mm')}</p>
+        <p><strong>⚠️ La mission commence dans 2 jours</strong></p>
+    </div>
+    
+    <p>Merci de confirmer votre participation d'ici ce soir.</p>
+    
+    <p>En cas d'empêchement, prévenez-nous au plus vite pour que nous puissions 
+       trouver un remplaçant.</p>
+</div>
+```
+
+---
+
+## Tests et Déploiement
+
+### Plan de Tests
+
+**Phase 1 : Tests Unitaires (par flux)**
+```
+✅ Flux 1 : Créer un bénévole test → Vérifier email reçu
+✅ Flux 2 : Créer une affectation → Vérifier notification
+✅ Flux 3 : Attendre 8h → Vérifier rappels envoyés
+✅ Flux 4 : Créer mission J+1 → Vérifier rappel 18h
+✅ Flux 5 : Lundi 9h → Vérifier alertes prestations
+✅ Flux 6 : Vendredi 17h → Vérifier rapport reçu
+✅ Flux 7 : Clôturer mission → Vérifier approbation
+```
+
+**Phase 2 : Tests d'Intégration**
+```
+- Scénario complet : Inscription → Affectation → Confirmation → Mission → Clôture
+- Vérifier cohérence des données entre flux
+- Tester gestion des erreurs (email invalide, etc.)
+```
+
+### Activation des Flux
+
+1. **Mode Test** : Activer uniquement sur environnement de développement
+2. **Validation** : Faire valider par coordinateurs
+3. **Production** : Activer progressivement (1-2 flux par semaine)
+4. **Monitoring** : Surveiller pendant 2 semaines
+
+### Gestion des Erreurs
+
+**Ajouter à chaque flux :**
+```
+Configuration → Paramètres → Exécuter après
+├─ En cas d'échec : Envoyer email à admin@serrentino.ch
+└─ En cas de délai d'expiration : Réessayer 3 fois avec 1h d'intervalle
+```
+
+---
+
+## Monitoring et Maintenance
+
+### Tableau de Bord des Flux
+
+Accédez à [make.powerautomate.com](https://make.powerautomate.com) → Mes flux
+
+**Indicateurs à surveiller :**
+- ✅ Taux de réussite (objectif : >95%)
+- ⏱️ Temps d'exécution moyen
+- 🔔 Nombre d'exécutions par jour
+- ⚠️ Erreurs récurrentes
+
+### Notifications d'Erreurs
+
+**Configurer alertes email pour :**
+- Échec de flux critique (Flux 1, 2, 4)
+- Plus de 5 échecs consécutifs
+- Temps d'exécution > 10 minutes
+
+### Optimisations
+
+**Si problèmes de performance :**
+1. Limiter les requêtes SharePoint (utiliser filtres OData)
+2. Éviter les boucles sur >100 éléments
+3. Utiliser des actions parallèles quand possible
+4. Mettre en cache les données fréquemment utilisées
+
+### Maintenance Mensuelle
+
+**Checklist :**
+- [ ] Vérifier historique des exécutions
+- [ ] Analyser les erreurs du mois
+- [ ] Mettre à jour les templates d'emails si besoin
+- [ ] Vérifier les connexions (renouveler si expirées)
+- [ ] Optimiser les flux lents
+- [ ] Documenter les changements
+
+---
+
+## Évolutions Futures
+
+### Phase 2 (Q1 2026)
+
+1. **Workflow Onboarding Complet**
+   - Signature électronique documents
+   - Formation en ligne automatique
+   - Quiz de validation
+
+2. **Gamification**
+   - Système de badges
+   - Classement bénévoles actifs
+   - Notifications d'anniversaire engagement
+
+3. **Intégration IA**
+   - Matching automatique bénévole-mission (AI Builder)
+   - Analyse sentiment des feedbacks
+   - Prédiction risque départ bénévole
+
+### Phase 3 (Q2 2026)
+
+1. **Application Mobile**
+   - Notifications push natives
+   - Géolocalisation pour missions
+   - Check-in/out automatique
+
+2. **Analytics Avancés**
+   - Power BI Embedded dans Power Apps
+   - Prévisions de besoin en bénévoles
+   - ROI des missions
+
+---
+
+## Ressources et Support
+
+### Documentation Officielle
+- [Power Automate Documentation](https://learn.microsoft.com/fr-fr/power-automate/)
+- [Connecteur SharePoint](https://learn.microsoft.com/fr-fr/connectors/sharepointonline/)
+- [Expressions Power Automate](https://learn.microsoft.com/fr-fr/power-automate/use-expressions-in-conditions)
+
+### Communauté
+- [Power Users Community](https://powerusers.microsoft.com/t5/Power-Automate-Community/ct-p/MPACommunity)
+- [Power Automate Blog](https://powerautomate.microsoft.com/fr-fr/blog/)
+
+---
+
+**Document créé le 8 décembre 2025**  
+**Version 2.0 - Guide complet Power Automate**
 
 **2. Action: Email de bienvenue**
 - **Action:** Envoyer un courrier électronique (V2) - Office 365 Outlook
