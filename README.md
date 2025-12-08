@@ -31,6 +31,7 @@ projet-low-code-benevoles/
 │   ├── mapping-access-sharepoint.md    # Plan de migration Access → SharePoint
 │   ├── specifications-sharepoint.md    # Spécifications détaillées des listes
 │   ├── architecture-power-apps.md      # Structure et écrans Power Apps
+│   ├── GUIDE-DEVELOPPEMENT-POWERAPPS.md # ✅ Guide pas-à-pas développement App
 │   ├── workflows-power-automate.md     # Flux d'automatisation
 │   ├── guide-execution-scripts.md      # ✅ Guide complet d'exécution des scripts
 │   └── resume-executif.md              # Résumé exécutif du projet
