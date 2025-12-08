@@ -204,6 +204,7 @@ foreach ($act in $activites) {
         NombreBenevoles = 1
         CompetencesRequises = ""
         ResponsableMission = ""
+        SourceCode = "ACT-" + $act.ACTIVITE_ID.PadLeft(4, '0')
         SourceType = "ACTIVITE"
         SourceID = $act.ACTIVITE_ID
     }
@@ -226,6 +227,7 @@ foreach ($eve in $evenements) {
         NombreBenevoles = 1
         CompetencesRequises = ""
         ResponsableMission = ""
+        SourceCode = "EVE-" + $eve.EVENEMENT_ID.PadLeft(4, '0')
         SourceType = "EVENEMENT"
         SourceID = $eve.EVENEMENT_ID
     }
