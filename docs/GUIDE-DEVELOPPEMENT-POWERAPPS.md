@@ -96,6 +96,85 @@ Splash → Accueil → [Modules principaux]
          Menu latéral persistant
 ```
 
+### Ordre de Création des Écrans (Recommandé)
+
+Suivez cet ordre pour un développement progressif avec tests à chaque étape :
+
+#### Phase 1 : Fondations (2 écrans)
+| # | Écran | Objectif |
+|---|-------|----------|
+| 1 | `Écran_Splash` | Timer + redirection |
+| 2 | `Écran_Accueil` | KPIs + connexion SharePoint |
+
+**✅ Test Phase 1 :** Lancer l'app → le splash redirige vers Accueil → les KPIs affichent des valeurs depuis SharePoint.
+
+---
+
+#### Phase 2 : Module Bénévoles (3 écrans)
+| # | Écran | Objectif |
+|---|-------|----------|
+| 3 | `Écran_Benevoles_Liste` | Galerie + recherche + filtres |
+| 4 | `Écran_Benevoles_Detail` | Visualisation complète |
+| 5 | `Écran_Benevoles_Formulaire` | Création / Modification |
+
+**✅ Test Phase 2 :** Créer un bénévole → le voir dans la liste → ouvrir le détail → modifier → vérifier les changements.
+
+---
+
+#### Phase 3 : Module Missions (2 écrans minimum)
+| # | Écran | Objectif |
+|---|-------|----------|
+| 6 | `Écran_Missions_Liste` | Galerie avec filtres type/statut |
+| 7 | `Écran_Missions_Detail` | Visualisation + bénévoles affectés |
+
+**✅ Test Phase 3 :** Parcourir les missions → filtrer par type → voir le détail d'une mission.
+
+---
+
+#### Phase 4 : Module Affectations (2 écrans)
+| # | Écran | Objectif |
+|---|-------|----------|
+| 8 | `Écran_Affectations_Liste` | Vue des affectations existantes |
+| 9 | `Écran_Affectations_Nouvelle` | Lier bénévole ↔ mission |
+
+**✅ Test Phase 4 :** Créer une affectation → vérifier qu'elle apparaît dans le détail du bénévole ET de la mission.
+
+---
+
+#### Phase 5 : Module Bénéficiaires + Prestations (5 écrans)
+| # | Écran | Objectif |
+|---|-------|----------|
+| 10 | `Écran_Beneficiaires_Liste` | Galerie + recherche |
+| 11 | `Écran_Beneficiaires_Detail` | Info + prestations actives |
+| 12 | `Écran_Beneficiaires_Formulaire` | Création / Modification |
+| 13 | `Écran_Prestations_Nouvelle` | Lier bénéficiaire ↔ mission |
+| 14 | `Écran_Prestations_Suivi` | Tableau de bord alertes |
+
+**✅ Test Phase 5 :** Créer un bénéficiaire → ajouter une prestation → vérifier les alertes (>30j sans visite).
+
+---
+
+#### Phase 6 : Finalisation Navigation
+| # | Écran | Objectif |
+|---|-------|----------|
+| 15 | `Gallery_Menu` sur `Écran_Accueil` | Navigation complète |
+
+**✅ Test Final :** Depuis l'Accueil, naviguer vers chaque module via le menu → retour fluide.
+
+---
+
+### Checklist Globale
+
+```
+[ ] Phase 1 : Splash + Accueil fonctionnels
+[ ] Phase 2 : CRUD Bénévoles complet
+[ ] Phase 3 : Consultation Missions
+[ ] Phase 4 : Affectations Bénévole ↔ Mission
+[ ] Phase 5 : Bénéficiaires + Prestations + Alertes
+[ ] Phase 6 : Navigation Menu finalisée
+[ ] Publication et partage
+```
+
 ---
 
 ## Connexion aux Sources de Données
