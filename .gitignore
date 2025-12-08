@@ -5,9 +5,19 @@
 *.ldb
 *BACKUP*.accdb
 
-# Exports CSV (données sensibles)
-exports/
-*.csv
+# Exports CSV bruts (données sensibles)
+exports/PERSONNE.csv
+exports/BENEVOLE.csv
+exports/BENEFICIAIRE.csv
+exports/ACTIVITE.csv
+exports/EVENEMENT.csv
+exports/DONNER.csv
+exports/PARTICIPANT.csv
+exports/RECEVOIR.csv
+exports/LOCALITE.csv
+
+# Dossier temporaire d'anonymisation
+exports/sharepoint-anonymise/
 
 # Logs
 *.log
